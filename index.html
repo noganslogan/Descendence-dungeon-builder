@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Descendence Dungeon Draft</title>
+<style>
+  :root {
+    --bg:#e6e1d6; --paper:#fffdf8; --ink:#1e1d1a; --muted:#777166;
+    --line:#d4cec2; --accent:#7a5c20; --bar:#fbf8f1;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  button,input,textarea{font:inherit}
+  #app{height:100dvh;display:grid;grid-template-rows:auto 1fr auto}
+  header{
+    display:flex;align-items:center;gap:8px;padding:10px 12px;
+    padding-top:max(10px,env(safe-area-inset-top));background:var(--bar);border-bottom:1px solid var(--line)
+  }
+  header strong{font-size:13px;letter-spacing:.03em;white-space:nowrap}
+  #status{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .mini{
+    border:1px solid var(--line);background:white;border-radius:8px;padding:8px 10px;color:var(--ink)
+  }
+  #workspace{position:relative;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;background:#dcd7cc}
+  #board-wrap{width:1600px;height:1100px;margin:12px;background:white;border:1px solid #c8c2b6;
+    box-shadow:0 4px 18px rgba(0,0,0,.08)}
+  svg{display:block;width:1600px;height:1100px;touch-action:none;user-select:none;-webkit-user-select:none}
+  #toolbar{
+    display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:8px 8px max(8px,env(safe-area-inset-bottom));
+    background:var(--bar);border-top:1px solid var(--line)
+  }
+  .tool{
+    min-width:0;border:1px solid var(--line);background:white;color:var(--ink);border-radius:9px;
+    padding:10px 4px;font-size:12px;font-weight:600
+  }
+  .tool.active{background:var(--ink);color:white;border-color:var(--ink)}
+  #sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--paper);
+    border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+    transform:translateY(105%);transition:transform .18s ease;max-height:68dvh;
+    box-shadow:0 -8px 30px rgba(0,0,0,.15);padding:14px 14px max(14px,env(safe-area-inset-bottom))
+  }
+  #sheet.open{transform:translateY(0)}
+  .sheet-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .sheet-head strong{font-size:14px;flex:1}
+  label{display:block;font-size:11px;color:var(--muted);margin:10px 0 5px}
+  input,textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:white;padding:10px;color:var(--ink)}
+  textarea{min-height:90px;resize:vertical}
+  .row{display:flex;gap:8px;margin-top:12px}
+  .row button{flex:1;border:1px solid var(--line);background:white;border-radius:8px;padding:10px}
+  .danger{color:#8c2d27}
+  #toast{position:fixed;top:70px;left:50%;transform:translate(-50%,-10px);z-index:20;
+    opacity:0;pointer-events:none;background:#1e1d1a;color:white;border-radius:999px;padding:8px 12px;font-size:12px;
+    transition:.18s ease}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <strong>DESCENDENCE</strong>
+    <span id="status">Select, or choose a drawing tool.</span>
+    <button class="mini" id="undoBtn">Undo</button>
+    <button class="mini" id="moreBtn">•••</button>
+  </header>
+
+  <div id="workspace">
+    <div id="board-wrap">
+      <svg id="board" viewBox="0 0 1600 1100">
+        <defs>
+          <pattern id="smallGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+            <path d="M24 0L0 0 0 24" fill="none" stroke="#eee9df" stroke-width="1"/>
+          </pattern>
+          <pattern id="grid" width="120" height="120" patternUnits="userSpaceOnUse">
+            <rect width="120" height="120" fill="url(#smallGrid)"/>
+            <path d="M120 0L0 0 0 120" fill="none" stroke="#d8d2c5" stroke-width="1.5"/>
+          </pattern>
+        </defs>
+        <rect width="1600" height="1100" fill="url(#grid)" pointer-events="none"/>
+        <g id="objects"></g>
+        <g id="preview" pointer-events="none"></g>
+      </svg>
+    </div>
+  </div>
+
+  <nav id="toolbar">
+    <button class="tool active" data-tool="select">Select</button>
+    <button class="tool" data-tool="room">Room</button>
+    <button class="tool" data-tool="corridor">Corridor</button>
+    <button class="tool" data-tool="door">Door</button>
+    <button class="tool" data-tool="erase">Erase</button>
+    <button class="tool" id="finishBtn">Finish</button>
+  </nav>
+</div>
+
+<div id="sheet">
+  <div class="sheet-head">
+    <strong id="sheetTitle">Dungeon</strong>
+    <button class="mini" id="closeSheet">Close</button>
+  </div>
+
+  <div id="objectEditor" hidden>
+    <label>LABEL</label>
+    <input id="labelField" placeholder="Room 1, north gate, boss chamber..." />
+    <label>NOTES</label>
+    <textarea id="notesField" placeholder="Notes for yourself or Claude..."></textarea>
+    <div class="row">
+      <button id="rotateBtn">Rotate Door</button>
+      <button class="danger" id="deleteBtn">Delete</button>
+    </div>
+  </div>
+
+  <div id="menu">
+    <div class="row">
+      <button id="copyBtn">Copy Claude JSON</button>
+      <button id="downloadBtn">Download JSON</button>
+    </div>
+    <div class="row">
+      <button id="importBtn">Import JSON</button>
+      <button class="danger" id="clearBtn">Clear Dungeon</button>
+    </div>
+    <input id="fileInput" type="file" accept=".json,application/json" hidden />
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  const GRID=24;
+  const board=document.getElementById('board');
+  const objectsLayer=document.getElementById('objects');
+  const previewLayer=document.getElementById('preview');
+  const workspace=document.getElementById('workspace');
+  const status=document.getElementById('status');
+  const sheet=document.getElementById('sheet');
+  const objectEditor=document.getElementById('objectEditor');
+  const menu=document.getElementById('menu');
+  const labelField=document.getElementById('labelField');
+  const notesField=document.getElementById('notesField');
+  const rotateBtn=document.getElementById('rotateBtn');
+  const toast=document.getElementById('toast');
+
+  let state={objects:[],nextId:1};
+  let tool='select',selectedId=null,history=[];
+  let roomStart=null,corridorDraft=[],doorOrientation='horizontal',activePointer=null;
+
+  const snap=n=>Math.round(n/GRID)*GRID;
+  const selected=()=>state.objects.find(o=>o.id===selectedId)||null;
+  const svgEl=(tag,attrs={})=>{
+    const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v)); return el;
+  };
+  function point(evt){
+    const p=board.createSVGPoint(); p.x=evt.clientX;p.y=evt.clientY;
+    const r=p.matrixTransform(board.getScreenCTM().inverse());
+    return {x:snap(r.x),y:snap(r.y)};
+  }
+  function flash(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1300)}
+  function saveHistory(){history.push(JSON.stringify(state));if(history.length>50)history.shift()}
+  function autosave(){localStorage.setItem('descendenceDungeonDraftV2',JSON.stringify(state))}
+  function load(){
+    try{const raw=localStorage.getItem('descendenceDungeonDraftV2');if(raw){const v=JSON.parse(raw);if(Array.isArray(v.objects))state=v}}catch{}
+  }
+  function nextId(){return state.nextId++}
+
+  function setTool(t){
+    tool=t; roomStart=null; activePointer=null; corridorDraft=[]; previewLayer.innerHTML='';
+    document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));
+    const m={
+      select:'Tap an object to select it.',
+      room:'Drag to make a room.',
+      corridor:'Tap points to make turns. Finish when done.',
+      door:`Tap to place a ${doorOrientation} door.`,
+      erase:'Tap an object to erase it.'
+    };status.textContent=m[tool]||'';
+  }
+
+  function orth(last,p){
+    return Math.abs(p.x-last[0])>=Math.abs(p.y-last[1])?[p.x,last[1]]:[last[0],p.y];
+  }
+
+  function render(){
+    objectsLayer.innerHTML='';
+    for(const o of state.objects){
+      const g=svgEl('g',{'data-id':o.id,style:'cursor:pointer'});
+      const sel=o.id===selectedId;
+      if(o.type==='room'){
+        g.appendChild(svgEl('rect',{x:o.x,y:o.y,width:o.w,height:o.h,fill:'#f7f3e8',
+          stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':sel?5:3}));
+        if(o.label){
+          const t=svgEl('text',{x:o.x+8,y:o.y+18,fill:'#1e1d1a','font-size':13,'pointer-events':'none'});
+          t.textContent=o.label;g.appendChild(t);
+        }
+      }else if(o.type==='corridor'){
+        const pts=o.points.map(p=>p.join(',')).join(' ');
+        g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:'transparent','stroke-width':42,
+          'stroke-linecap':'square','stroke-linejoin':'miter'}));
+        g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':26,
+          'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
+        g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:'#f7f3e8','stroke-width':18,
+          'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
+      }else if(o.type==='door'){
+        const h=o.orientation==='horizontal',len=28;
+        const x1=h?o.x-len/2:o.x,y1=h?o.y:o.y-len/2,x2=h?o.x+len/2:o.x,y2=h?o.y:o.y+len/2;
+        g.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:'transparent','stroke-width':28}));
+        g.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':6,'pointer-events':'none'}));
+      }
+      objectsLayer.appendChild(g);
+    }
+    autosave();
+  }
+
+  function roomPreview(a,b){
+    previewLayer.innerHTML='';
+    previewLayer.appendChild(svgEl('rect',{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),
+      width:Math.abs(b.x-a.x),height:Math.abs(b.y-a.y),fill:'rgba(122,92,32,.08)',
+      stroke:'#7a5c20','stroke-width':3,'stroke-dasharray':'8 6'}));
+  }
+  function corridorPreview(mouse=null){
+    previewLayer.innerHTML='';if(!corridorDraft.length)return;
+    const pts=corridorDraft.map(p=>[...p]);
+    if(mouse)pts.push(orth(pts[pts.length-1],mouse));
+    previewLayer.appendChild(svgEl('polyline',{points:pts.map(p=>p.join(',')).join(' '),fill:'none',
+      stroke:'#7a5c20','stroke-width':25,'stroke-linecap':'square','stroke-linejoin':'miter',opacity:.45}));
+  }
+  function finishCorridor(){
+    if(corridorDraft.length>=2){
+      saveHistory();const o={id:nextId(),type:'corridor',points:corridorDraft.map(p=>[...p]),label:'',notes:''};
+      state.objects.push(o);selectedId=o.id;render();openObjectSheet();
+    }
+    corridorDraft=[];previewLayer.innerHTML='';
+  }
+  function openObjectSheet(){
+    const o=selected();if(!o)return;
+    document.getElementById('sheetTitle').textContent=o.type[0].toUpperCase()+o.type.slice(1);
+    menu.hidden=true;objectEditor.hidden=false;labelField.value=o.label||'';notesField.value=o.notes||'';
+    rotateBtn.hidden=o.type!=='door';sheet.classList.add('open');
+  }
+  function openMenu(){
+    document.getElementById('sheetTitle').textContent='Dungeon';
+    objectEditor.hidden=true;menu.hidden=false;sheet.classList.add('open');
+  }
+  function closeSheet(){sheet.classList.remove('open')}
+
+  board.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    if(tool==='room'){
+      activePointer=e.pointerId;board.setPointerCapture(e.pointerId);roomStart=point(e);e.preventDefault();
+    }
+  });
+  board.addEventListener('pointermove',e=>{
+    if(tool==='room'&&roomStart&&activePointer===e.pointerId){roomPreview(roomStart,point(e));e.preventDefault()}
+    if(tool==='corridor'&&corridorDraft.length&&e.pointerType==='mouse')corridorPreview(point(e));
+  });
+  board.addEventListener('pointerup',e=>{
+    if(tool!=='room'||!roomStart||activePointer!==e.pointerId)return;
+    const b=point(e),a=roomStart,x=Math.min(a.x,b.x),y=Math.min(a.y,b.y),w=Math.abs(b.x-a.x),h=Math.abs(b.y-a.y);
+    if(w>=GRID&&h>=GRID){saveHistory();const o={id:nextId(),type:'room',x,y,w,h,label:'',notes:''};state.objects.push(o);selectedId=o.id}
+    roomStart=null;activePointer=null;previewLayer.innerHTML='';render();if(selectedId)openObjectSheet();e.preventDefault();
+  });
+
+  board.addEventListener('click',e=>{
+    if(tool==='room')return;
+    const group=e.target.closest('[data-id]'),id=group?Number(group.dataset.id):null;
+
+    if(tool==='select'){selectedId=id;render();if(id)openObjectSheet();return}
+    if(tool==='erase'){
+      if(id){saveHistory();state.objects=state.objects.filter(o=>o.id!==id);if(selectedId===id)selectedId=null;render()}
+      return;
+    }
+    if(tool==='door'){
+      const p=point(e);saveHistory();const o={id:nextId(),type:'door',x:p.x,y:p.y,orientation:doorOrientation,label:'',notes:''};
+      state.objects.push(o);selectedId=o.id;render();openObjectSheet();return;
+    }
+    if(tool==='corridor'){
+      const p=point(e);
+      if(!corridorDraft.length)corridorDraft.push([p.x,p.y]);
+      else{
+        const n=orth(corridorDraft[corridorDraft.length-1],p),last=corridorDraft[corridorDraft.length-1];
+        if(n[0]!==last[0]||n[1]!==last[1])corridorDraft.push(n);
+      }
+      corridorPreview();status.textContent=`Corridor: ${corridorDraft.length} point${corridorDraft.length===1?'':'s'}. Tap Finish when done.`;
+    }
+  });
+
+  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+  document.getElementById('finishBtn').onclick=()=>{if(tool==='corridor')finishCorridor();else closeSheet()};
+  document.getElementById('undoBtn').onclick=()=>{if(!history.length)return;state=JSON.parse(history.pop());selectedId=null;corridorDraft=[];render();flash('Undone')};
+  document.getElementById('moreBtn').onclick=openMenu;
+  document.getElementById('closeSheet').onclick=closeSheet;
+
+  labelField.oninput=()=>{const o=selected();if(!o)return;o.label=labelField.value;render()};
+  notesField.oninput=()=>{const o=selected();if(!o)return;o.notes=notesField.value;autosave()};
+  document.getElementById('deleteBtn').onclick=()=>{if(!selectedId)return;saveHistory();state.objects=state.objects.filter(o=>o.id!==selectedId);selectedId=null;render();closeSheet()};
+  rotateBtn.onclick=()=>{const o=selected();if(!o||o.type!=='door')return;saveHistory();o.orientation=o.orientation==='horizontal'?'vertical':'horizontal';render();flash('Door rotated')};
+
+  document.getElementById('copyBtn').onclick=async()=>{
+    const payload={format:'Descendence Dungeon Draft v2',gridSize:GRID,dungeon:state.objects};
+    const txt=JSON.stringify(payload,null,2);
+    try{await navigator.clipboard.writeText(txt);flash('Claude JSON copied')}catch{prompt('Copy this JSON:',txt)}
+  };
+  document.getElementById('downloadBtn').onclick=()=>{
+    const blob=new Blob([JSON.stringify({format:'Descendence Dungeon Draft v2',gridSize:GRID,dungeon:state.objects,nextId:state.nextId},null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='descendence-dungeon.json';a.click();URL.revokeObjectURL(a.href);flash('Dungeon downloaded')
+  };
+  document.getElementById('importBtn').onclick=()=>document.getElementById('fileInput').click();
+  document.getElementById('fileInput').onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{
+      const p=JSON.parse(await f.text()),objs=Array.isArray(p.dungeon)?p.dungeon:Array.isArray(p.objects)?p.objects:null;
+      if(!objs)throw Error();saveHistory();const max=objs.reduce((m,o)=>Math.max(m,Number(o.id)||0),0);
+      state={objects:objs,nextId:p.nextId||max+1};selectedId=null;render();closeSheet();flash('Dungeon imported')
+    }catch{alert('Could not import that JSON file.')}e.target.value='';
+  };
+  document.getElementById('clearBtn').onclick=()=>{if(confirm('Clear the whole dungeon?')){saveHistory();state={objects:[],nextId:1};selectedId=null;render();closeSheet()}};
+
+  load();render();setTool('select');
+  requestAnimationFrame(()=>{workspace.scrollLeft=180;workspace.scrollTop=100});
+})();
+</script>
+</body>
+</html>
