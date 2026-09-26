@@ -77,9 +77,9 @@
             <rect width="120" height="120" fill="url(#smallGrid)"/>
             <path d="M120 0L0 0 0 120" fill="none" stroke="#d8d2c5" stroke-width="1.5"/>
           </pattern>
-          <pattern id="hallwayHatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(0)">
-            <rect width="10" height="10" fill="#eee5d2"/>
-            <path d="M-2 10L10-2M3 15L15 3" fill="none" stroke="#d8ccb2" stroke-width="1" opacity=".55"/>
+          <pattern id="hallwayHatch" width="9" height="9" patternUnits="userSpaceOnUse">
+            <rect width="9" height="9" fill="#e4d5b7"/>
+            <path d="M-3 9L9-3M1 13L13 1" fill="none" stroke="#b69f76" stroke-width="1.35" opacity=".72"/>
           </pattern>
         </defs>
         <rect width="1600" height="1100" fill="url(#grid)" pointer-events="none"/>
@@ -205,7 +205,7 @@
             'stroke-linecap':'square','stroke-linejoin':'miter'}));
           g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':26,
             'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
-          g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:'#eee5d2','stroke-width':18,
+          g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:'#e4d5b7','stroke-width':18,
             'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
         }else{
           g.appendChild(svgEl('rect',{x:o.x,y:o.y,width:o.w,height:o.h,fill:'url(#hallwayHatch)',
@@ -232,7 +232,7 @@
     previewLayer.appendChild(svgEl('rect',{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),
       width:Math.abs(b.x-a.x),height:Math.abs(b.y-a.y),
       fill:hallway?'url(#hallwayHatch)':'rgba(122,92,32,.08)',
-      opacity:hallway?.72:1,
+      opacity:hallway?.9:1,
       stroke:'#7a5c20','stroke-width':3,'stroke-dasharray':hallway?'4 4':'8 6'}));
   }
   function corridorPreview(mouse=null){
