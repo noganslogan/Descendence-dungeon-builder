@@ -3,58 +3,77 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#fbf8f1" />
 <title>Descendence Dungeon Draft</title>
 <style>
   :root {
     --bg:#e6e1d6; --paper:#fffdf8; --ink:#1e1d1a; --muted:#777166;
-    --line:#d4cec2; --accent:#7a5c20; --bar:#fbf8f1;
+    --line:#d4cec2; --accent:#7a5c20; --bar:#fbf8f1; --danger:#8c2d27;
   }
   *{box-sizing:border-box}
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
     font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
   button,input,textarea{font:inherit}
+  button{color:var(--ink);touch-action:manipulation}
   #app{height:100dvh;display:grid;grid-template-rows:auto 1fr auto}
   header{
     display:flex;align-items:center;gap:8px;padding:10px 12px;
-    padding-top:max(10px,env(safe-area-inset-top));background:var(--bar);border-bottom:1px solid var(--line)
+    padding-top:max(10px,env(safe-area-inset-top));background:var(--bar);border-bottom:1px solid var(--line);z-index:4
   }
   header strong{font-size:13px;letter-spacing:.03em;white-space:nowrap}
   #status{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-  .mini{
-    border:1px solid var(--line);background:white;border-radius:8px;padding:8px 10px;color:var(--ink)
-  }
-  #workspace{position:relative;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;background:#dcd7cc}
-  #board-wrap{width:1600px;height:1100px;margin:12px;background:white;border:1px solid #c8c2b6;
-    box-shadow:0 4px 18px rgba(0,0,0,.08)}
-  svg{display:block;width:1600px;height:1100px;touch-action:none;user-select:none;-webkit-user-select:none}
-  #toolbar{
-    display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:8px 8px max(8px,env(safe-area-inset-bottom));
-    background:var(--bar);border-top:1px solid var(--line)
-  }
-  .tool{
-    min-width:0;border:1px solid var(--line);background:white;color:var(--ink);border-radius:9px;
-    padding:10px 4px;font-size:12px;font-weight:600
-  }
+  .mini{border:1px solid var(--line);background:white;border-radius:8px;padding:8px 10px;color:var(--ink)}
+  #workspace{position:relative;overflow:hidden;overscroll-behavior:none;touch-action:none;background:#dcd7cc}
+  #board-wrap{position:absolute;inset:0;background:white;box-shadow:inset 0 0 0 1px #c8c2b6}
+  #board{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;background:white}
+  #zoomControls{position:absolute;right:10px;bottom:10px;z-index:3;display:flex;align-items:center;gap:2px;
+    padding:4px;background:rgba(251,248,241,.94);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 3px 14px rgba(0,0,0,.12);backdrop-filter:blur(8px)}
+  #zoomControls button{min-width:36px;height:36px;border:0;background:transparent;border-radius:7px;font-weight:700;padding:0 8px}
+  #zoomControls button:active{background:#e9e3d8}
+  #zoomLevel{min-width:50px;text-align:center;font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted)}
+  #toolbar{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:8px 8px max(8px,env(safe-area-inset-bottom));
+    background:var(--bar);border-top:1px solid var(--line);z-index:4}
+  .tool{min-width:0;border:1px solid var(--line);background:white;color:var(--ink);border-radius:9px;
+    padding:10px 2px;font-size:11px;font-weight:650;white-space:nowrap}
   .tool.active{background:var(--ink);color:white;border-color:var(--ink)}
-  #sheet{
-    position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--paper);
-    border-top:1px solid var(--line);border-radius:18px 18px 0 0;
-    transform:translateY(105%);transition:transform .18s ease;max-height:68dvh;
-    box-shadow:0 -8px 30px rgba(0,0,0,.15);padding:14px 14px max(14px,env(safe-area-inset-bottom))
-  }
+  #sheet{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--paper);border-top:1px solid var(--line);
+    border-radius:18px 18px 0 0;transform:translateY(105%);transition:transform .18s ease;max-height:72dvh;overflow:auto;
+    box-shadow:0 -8px 30px rgba(0,0,0,.15);padding:14px 14px max(14px,env(safe-area-inset-bottom))}
   #sheet.open{transform:translateY(0)}
-  .sheet-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .sheet-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;position:sticky;top:-14px;background:var(--paper);padding-top:2px;z-index:1}
   .sheet-head strong{font-size:14px;flex:1}
   label{display:block;font-size:11px;color:var(--muted);margin:10px 0 5px}
   input,textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:white;padding:10px;color:var(--ink)}
-  textarea{min-height:90px;resize:vertical}
+  textarea{min-height:88px;resize:vertical}
   .row{display:flex;gap:8px;margin-top:12px}
   .row button{flex:1;border:1px solid var(--line);background:white;border-radius:8px;padding:10px}
-  .danger{color:#8c2d27}
-  #toast{position:fixed;top:70px;left:50%;transform:translate(-50%,-10px);z-index:20;
+  .danger{color:var(--danger)!important}
+  .hint{font-size:11px;line-height:1.45;color:var(--muted);margin:10px 0 0}
+  #objectKind{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  #connectionWarning{font-size:12px;line-height:1.4;color:var(--danger);background:#f8e9e5;border:1px solid #e6c4bd;
+    padding:9px 10px;border-radius:8px;margin:10px 0}
+  .marker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .marker-choice{display:flex;align-items:center;gap:9px;min-height:48px;text-align:left;border:1px solid var(--line);background:white;
+    border-radius:9px;padding:8px;font-size:12px;font-weight:600}
+  .marker-glyph{width:30px;height:30px;border:2px solid var(--ink);border-radius:50%;display:grid;place-items:center;
+    font-size:14px;font-weight:800;flex:0 0 auto;background:#f7f3e8}
+  #connectionText{font-size:13px;line-height:1.45;margin:2px 0 10px}
+  #connectionProgress{font-size:11px;color:var(--muted);margin-bottom:10px}
+  .connection-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .connection-choice{border:1px solid var(--line);background:white;border-radius:9px;padding:12px 8px;font-size:12px;font-weight:650}
+  .connection-choice.primary{background:var(--ink);color:white;border-color:var(--ink)}
+  #toast{position:fixed;top:max(70px,calc(env(safe-area-inset-top) + 54px));left:50%;transform:translate(-50%,-10px);z-index:20;
     opacity:0;pointer-events:none;background:#1e1d1a;color:white;border-radius:999px;padding:8px 12px;font-size:12px;
-    transition:.18s ease}
+    transition:.18s ease;max-width:calc(100vw - 24px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (min-width:700px){
+    #toolbar{grid-template-columns:repeat(6,minmax(80px,110px));justify-content:center}
+    .tool{font-size:12px}
+    #sheet{left:50%;right:auto;width:min(520px,calc(100vw - 24px));transform:translate(-50%,105%);border:1px solid var(--line);border-bottom:0}
+    #sheet.open{transform:translate(-50%,0)}
+    .marker-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
 </style>
 </head>
 <body>
@@ -63,12 +82,12 @@
     <strong>DESCENDENCE</strong>
     <span id="status">Select, or choose a drawing tool.</span>
     <button class="mini" id="undoBtn">Undo</button>
-    <button class="mini" id="moreBtn">•••</button>
+    <button class="mini" id="moreBtn" aria-label="Dungeon menu">•••</button>
   </header>
 
-  <div id="workspace">
+  <main id="workspace" aria-label="Dungeon canvas">
     <div id="board-wrap">
-      <svg id="board" viewBox="0 0 1600 1100">
+      <svg id="board" role="application" aria-label="Dungeon drawing grid">
         <defs>
           <pattern id="smallGrid" width="24" height="24" patternUnits="userSpaceOnUse">
             <path d="M24 0L0 0 0 24" fill="none" stroke="#eee9df" stroke-width="1"/>
@@ -82,37 +101,64 @@
             <path d="M-3 9L9-3M1 13L13 1" fill="none" stroke="#b69f76" stroke-width="1.35" opacity=".72"/>
           </pattern>
         </defs>
-        <rect width="1600" height="1100" fill="url(#grid)" pointer-events="none"/>
-        <g id="objects"></g>
+        <rect id="canvasBg" fill="url(#grid)" pointer-events="none"/>
+        <g id="structures"></g>
+        <g id="connections"></g>
+        <g id="details"></g>
         <g id="preview" pointer-events="none"></g>
       </svg>
     </div>
-  </div>
+    <div id="zoomControls" aria-label="Canvas zoom controls">
+      <button id="zoomOutBtn" aria-label="Zoom out">−</button>
+      <span id="zoomLevel">100%</span>
+      <button id="zoomInBtn" aria-label="Zoom in">+</button>
+      <button id="fitBtn">Fit</button>
+    </div>
+  </main>
 
-  <nav id="toolbar">
+  <nav id="toolbar" aria-label="Drawing tools">
     <button class="tool active" data-tool="select">Select</button>
     <button class="tool" data-tool="room">Room</button>
-    <button class="tool" data-tool="corridor">Hallway</button>
+    <button class="tool" data-tool="hallway">Hallway</button>
     <button class="tool" data-tool="door">Door</button>
+    <button class="tool" data-tool="marker">Marker</button>
     <button class="tool" data-tool="erase">Erase</button>
-    <button class="tool" id="finishBtn">Finish</button>
   </nav>
 </div>
 
-<div id="sheet">
+<section id="sheet" aria-live="polite">
   <div class="sheet-head">
     <strong id="sheetTitle">Dungeon</strong>
     <button class="mini" id="closeSheet">Close</button>
   </div>
 
   <div id="objectEditor" hidden>
-    <label>LABEL</label>
+    <div id="objectKind"></div>
+    <div id="connectionWarning" hidden></div>
+    <label for="labelField">LABEL</label>
     <input id="labelField" placeholder="Room 1, north gate, boss chamber..." />
-    <label>NOTES</label>
+    <label for="notesField">NOTES</label>
     <textarea id="notesField" placeholder="Notes for yourself or Claude..."></textarea>
+    <p class="hint">To move: close this panel, select the object, then drag it. On touch, hold briefly before dragging.</p>
     <div class="row">
       <button id="rotateBtn">Rotate Door</button>
       <button class="danger" id="deleteBtn">Delete</button>
+    </div>
+  </div>
+
+  <div id="markerPicker" hidden>
+    <p class="hint" style="margin:0 0 10px">Choose a marker, then tap the grid to place it.</p>
+    <div class="marker-grid" id="markerGrid"></div>
+  </div>
+
+  <div id="connectionPicker" hidden>
+    <div id="connectionProgress"></div>
+    <p id="connectionText"></p>
+    <div class="connection-grid">
+      <button class="connection-choice primary" data-connection-choice="open-passage">Open Passage</button>
+      <button class="connection-choice" data-connection-choice="door">Door</button>
+      <button class="connection-choice" data-connection-choice="secret-door">Secret Door</button>
+      <button class="connection-choice" data-connection-choice="separate">Keep Separate</button>
     </div>
   </div>
 
@@ -127,210 +173,1125 @@
     </div>
     <input id="fileInput" type="file" accept=".json,application/json" hidden />
   </div>
-</div>
+</section>
 
 <div id="toast"></div>
 
 <script>
 (() => {
+  'use strict';
+
   const GRID=24;
+  const STORAGE_V3='descendenceDungeonDraftV3';
+  const STORAGE_V2='descendenceDungeonDraftV2';
+  const MIN_ZOOM=.25;
+  const MAX_ZOOM=3;
+  const EPS=.75;
+
+  const markerCatalog={
+    monster:{label:'Monster',glyph:'M'},
+    boss:{label:'Boss',glyph:'B'},
+    treasure:{label:'Treasure',glyph:'◇'},
+    trap:{label:'Trap',glyph:'△'},
+    poi:{label:'Puzzle / Point of Interest',glyph:'?'},
+    npc:{label:'NPC',glyph:'N'},
+    key:{label:'Key / Important Item',glyph:'K'},
+    'stairs-up':{label:'Stairs Up',glyph:'↑'},
+    'stairs-down':{label:'Stairs Down',glyph:'↓'},
+    'secret-door':{label:'Secret Door',glyph:'S'},
+    objective:{label:'Objective / Important Location',glyph:'★'},
+    entrance:{label:'Entrance / Exit',glyph:'E'}
+  };
+
   const board=document.getElementById('board');
-  const objectsLayer=document.getElementById('objects');
+  const canvasBg=document.getElementById('canvasBg');
+  const structuresLayer=document.getElementById('structures');
+  const connectionsLayer=document.getElementById('connections');
+  const detailsLayer=document.getElementById('details');
   const previewLayer=document.getElementById('preview');
   const workspace=document.getElementById('workspace');
   const status=document.getElementById('status');
   const sheet=document.getElementById('sheet');
+  const sheetTitle=document.getElementById('sheetTitle');
   const objectEditor=document.getElementById('objectEditor');
+  const markerPicker=document.getElementById('markerPicker');
+  const connectionPicker=document.getElementById('connectionPicker');
   const menu=document.getElementById('menu');
   const labelField=document.getElementById('labelField');
   const notesField=document.getElementById('notesField');
+  const objectKind=document.getElementById('objectKind');
+  const connectionWarning=document.getElementById('connectionWarning');
   const rotateBtn=document.getElementById('rotateBtn');
   const toast=document.getElementById('toast');
+  const zoomLevel=document.getElementById('zoomLevel');
 
-  let state={objects:[],nextId:1};
-  let tool='select',selectedId=null,history=[];
-  let roomStart=null,corridorDraft=[],doorOrientation='horizontal',activePointer=null;
+  let state=createEmptyState();
+  let viewport={x:-GRID*2,y:-GRID*2,zoom:1};
+  let tool='select';
+  let selectedId=null;
+  let activeMarkerType='monster';
+  let doorOrientation='horizontal';
+  let history=[];
+  let gesture=null;
+  let pointers=new Map();
+  let longPressTimer=null;
+  let connectionQueue=[];
+  let connectionQueueTotal=0;
+  let editorHistorySaved=false;
+  let toastTimer=null;
+  let autosaveTimer=null;
 
+  function createEmptyState(){
+    return {
+      schemaVersion:3,
+      meta:{title:'Untitled Dungeon'},
+      floors:[{id:'ground',name:'Ground',order:0}],
+      activeFloorId:'ground',
+      objects:[],connections:[],nextId:1,nextConnectionId:1
+    };
+  }
+
+  const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
   const snap=n=>Math.round(n/GRID)*GRID;
-  const selected=()=>state.objects.find(o=>o.id===selectedId)||null;
-  const svgEl=(tag,attrs={})=>{
+  const sameId=(a,b)=>String(a)===String(b);
+  const deepClone=value=>JSON.parse(JSON.stringify(value));
+  const getObject=id=>state.objects.find(o=>sameId(o.id,id))||null;
+  const selected=()=>getObject(selectedId);
+  const activeFloorObjects=()=>state.objects.filter(o=>o.floorId===state.activeFloorId);
+  const isStructural=o=>o&&(o.type==='room'||o.type==='hallway');
+  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+
+  function svgEl(tag,attrs={}){
     const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
-    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v)); return el;
-  };
-  function point(evt){
-    const p=board.createSVGPoint(); p.x=evt.clientX;p.y=evt.clientY;
-    const r=p.matrixTransform(board.getScreenCTM().inverse());
-    return {x:snap(r.x),y:snap(r.y)};
+    Object.entries(attrs).forEach(([key,value])=>{
+      if(value!==undefined&&value!==null)el.setAttribute(key,String(value));
+    });
+    return el;
   }
-  function flash(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1300)}
-  function saveHistory(){history.push(JSON.stringify(state));if(history.length>50)history.shift()}
-  function autosave(){localStorage.setItem('descendenceDungeonDraftV2',JSON.stringify(state))}
-  function load(){
-    try{const raw=localStorage.getItem('descendenceDungeonDraftV2');if(raw){const v=JSON.parse(raw);if(Array.isArray(v.objects))state=v}}catch{}
+
+  function flash(message,duration=1500){
+    clearTimeout(toastTimer);
+    toast.textContent=message;
+    toast.classList.add('show');
+    toastTimer=setTimeout(()=>toast.classList.remove('show'),duration);
   }
+
+  function scheduleAutosave(){
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(()=>{
+      try{localStorage.setItem(STORAGE_V3,JSON.stringify({...state,viewport}))}catch{}
+    },120);
+  }
+
+  function saveHistory(){
+    history.push(JSON.stringify(state));
+    if(history.length>80)history.shift();
+  }
+
   function nextId(){return state.nextId++}
+  function nextConnectionId(){return state.nextConnectionId++}
 
-  function setTool(t){
-    tool=t; roomStart=null; activePointer=null; corridorDraft=[]; previewLayer.innerHTML='';
-    document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));
-    const m={
-      select:'Tap an object to select it.',
-      room:'Drag to make a room.',
-      corridor:'Drag to make a hallway.',
-      door:`Tap to place a ${doorOrientation} door.`,
-      erase:'Tap an object to erase it.'
-    };status.textContent=m[tool]||'';
+  function normalizeNumber(value,fallback=0){
+    const number=Number(value);
+    return Number.isFinite(number)?number:fallback;
   }
 
-  function orth(last,p){
-    return Math.abs(p.x-last[0])>=Math.abs(p.y-last[1])?[p.x,last[1]]:[last[0],p.y];
+  function gridCoordinate(raw,axis){
+    const gp=raw.gridPosition||raw.position;
+    if(gp&&typeof gp==='object'){
+      const key=axis==='x'?'column':'row';
+      if(Number.isFinite(Number(gp[key])))return Number(gp[key])*GRID;
+      if(Number.isFinite(Number(gp[axis])))return Number(gp[axis])*GRID;
+    }
+    return normalizeNumber(raw[axis]);
+  }
+
+  function normalizeObject(raw,fallbackId){
+    if(!raw||typeof raw!=='object')return null;
+    let type=raw.type==='corridor'?'hallway':raw.type;
+    if(!['room','hallway','door','marker'].includes(type))return null;
+    const common={
+      id:raw.id??fallbackId,
+      type,
+      floorId:raw.floorId||raw.floor||'ground',
+      label:typeof raw.label==='string'?raw.label:'',
+      notes:typeof raw.notes==='string'?raw.notes:''
+    };
+    if(type==='room'||type==='hallway'){
+      const rawPath=Array.isArray(raw.points)?raw.points:Array.isArray(raw.gridPath)?raw.gridPath.map(p=>[
+        normalizeNumber(p.column??p.x)*GRID,normalizeNumber(p.row??p.y)*GRID
+      ]):null;
+      if(type==='hallway'&&rawPath&&rawPath.length>=2){
+        return {...common,shape:'path',points:rawPath.map(p=>[normalizeNumber(p[0]),normalizeNumber(p[1])])};
+      }
+      let x=gridCoordinate(raw,'x'),y=gridCoordinate(raw,'y');
+      let w=raw.dimensions?normalizeNumber(raw.dimensions.widthCells)*GRID:normalizeNumber(raw.w??raw.width,GRID);
+      let h=raw.dimensions?normalizeNumber(raw.dimensions.heightCells)*GRID:normalizeNumber(raw.h??raw.height,GRID);
+      if(w<0){x+=w;w=Math.abs(w)}
+      if(h<0){y+=h;h=Math.abs(h)}
+      return {...common,shape:'rect',x,y,w:Math.max(GRID,w),h:Math.max(GRID,h)};
+    }
+    if(type==='door'){
+      return {...common,x:gridCoordinate(raw,'x'),y:gridCoordinate(raw,'y'),
+        orientation:raw.orientation==='vertical'?'vertical':'horizontal',
+        doorType:raw.doorType||raw.kind||'door',connectionId:raw.connectionId??null,
+        generatedByConnection:Boolean(raw.generatedByConnection)};
+    }
+    const markerType=markerCatalog[raw.markerType]?raw.markerType:'poi';
+    return {...common,x:gridCoordinate(raw,'x'),y:gridCoordinate(raw,'y'),markerType,
+      targetFloorId:raw.targetFloorId??null};
+  }
+
+  function normalizeConnection(raw,fallbackId){
+    if(!raw||typeof raw!=='object')return null;
+    const gp=raw.gridPosition||raw.position||{};
+    const x=Number.isFinite(Number(gp.column))?Number(gp.column)*GRID:normalizeNumber(gp.x);
+    const y=Number.isFinite(Number(gp.row))?Number(gp.row)*GRID:normalizeNumber(gp.y);
+    const type=['open-passage','door','secret-door'].includes(raw.type)?raw.type:'open-passage';
+    return {
+      id:raw.id??fallbackId,
+      type,
+      floorId:raw.floorId||raw.floor||'ground',
+      fromObjectId:raw.fromObjectId??raw.from?.objectId,
+      toObjectId:raw.toObjectId??raw.to?.objectId,
+      position:{x,y},
+      orientation:raw.orientation==='vertical'?'vertical':'horizontal',
+      doorObjectId:raw.doorObjectId??null,
+      status:raw.status==='invalid'?'invalid':'valid',
+      reason:typeof raw.reason==='string'?raw.reason:''
+    };
+  }
+
+  function normalizeState(raw){
+    const input=raw&&typeof raw==='object'?raw:{};
+    const container=input.dungeon&&!Array.isArray(input.dungeon)?input.dungeon:input;
+    const objectSource=Array.isArray(input.dungeon)?input.dungeon:Array.isArray(container.objects)?container.objects:
+      Array.isArray(input.objects)?input.objects:[];
+    const objects=objectSource.map((o,index)=>normalizeObject(o,index+1)).filter(Boolean);
+    const objectIds=new Set(objects.map(o=>String(o.id)));
+    const connectionSource=Array.isArray(container.connections)?container.connections:Array.isArray(input.connections)?input.connections:[];
+    const connections=connectionSource.map((c,index)=>normalizeConnection(c,index+1)).filter(c=>c&&
+      objectIds.has(String(c.fromObjectId))&&objectIds.has(String(c.toObjectId)));
+    const floorsSource=Array.isArray(container.floors)?container.floors:Array.isArray(input.floors)?input.floors:[];
+    const floorIds=new Set(objects.map(o=>o.floorId));
+    const floors=floorsSource.length?floorsSource.map((f,index)=>({
+      id:f.id||`floor-${index+1}`,name:f.name||f.label||`Floor ${index+1}`,order:normalizeNumber(f.order,index)
+    })):[{id:'ground',name:'Ground',order:0}];
+    floorIds.forEach(id=>{if(!floors.some(f=>f.id===id))floors.push({id,name:id,order:floors.length})});
+    const numericObjectIds=objects.map(o=>Number(o.id)).filter(Number.isFinite);
+    const numericConnectionIds=connections.map(c=>Number(c.id)).filter(Number.isFinite);
+    const nextObject=Math.max(0,...numericObjectIds)+1;
+    const nextConnection=Math.max(0,...numericConnectionIds)+1;
+    const activeFloorId=container.activeFloorId||input.activeFloorId||floors[0].id;
+    const normalized={
+      schemaVersion:3,
+      meta:{title:container.meta?.title||input.meta?.title||container.title||'Untitled Dungeon'},
+      floors,
+      activeFloorId:floors.some(f=>f.id===activeFloorId)?activeFloorId:floors[0].id,
+      objects,connections,
+      nextId:Math.max(normalizeNumber(container.nextId??input.nextId,nextObject),nextObject),
+      nextConnectionId:Math.max(normalizeNumber(container.nextConnectionId??input.nextConnectionId,nextConnection),nextConnection)
+    };
+    const savedViewport=input.viewport||container.viewport;
+    const normalizedViewport=savedViewport?{
+      x:normalizeNumber(savedViewport.x,-GRID*2),y:normalizeNumber(savedViewport.y,-GRID*2),
+      zoom:clamp(normalizeNumber(savedViewport.zoom,1),MIN_ZOOM,MAX_ZOOM)
+    }:null;
+    return {state:normalized,viewport:normalizedViewport};
+  }
+
+  function load(){
+    for(const key of [STORAGE_V3,STORAGE_V2]){
+      try{
+        const raw=localStorage.getItem(key);
+        if(!raw)continue;
+        const normalized=normalizeState(JSON.parse(raw));
+        state=normalized.state;
+        if(normalized.viewport)viewport=normalized.viewport;
+        return;
+      }catch{}
+    }
+  }
+
+  function objectDisplayName(object){
+    if(!object)return 'Object';
+    if(object.label.trim())return object.label.trim();
+    if(object.type==='hallway')return `Hallway ${object.id}`;
+    if(object.type==='room')return `Room ${object.id}`;
+    if(object.type==='door')return `${object.doorType==='secret-door'?'Secret Door':'Door'} ${object.id}`;
+    return `${markerCatalog[object.markerType]?.label||'Marker'} ${object.id}`;
+  }
+
+  function typeDisplayName(object){
+    if(!object)return 'Object';
+    if(object.type==='hallway')return 'Hallway';
+    if(object.type==='room')return 'Room';
+    if(object.type==='door')return object.doorType==='secret-door'?'Secret Door':'Door';
+    return markerCatalog[object.markerType]?.label||'Marker';
+  }
+
+  function showSheetSection(section,title){
+    [objectEditor,markerPicker,connectionPicker,menu].forEach(el=>el.hidden=el!==section);
+    sheetTitle.textContent=title;
+    sheet.classList.add('open');
+  }
+
+  function forceCloseSheet(){sheet.classList.remove('open')}
+  function closeSheet(){
+    if(connectionQueue.length){flash('Choose how these areas connect first');return}
+    forceCloseSheet();
+  }
+
+  function openObjectSheet(){
+    const object=selected();
+    if(!object)return;
+    editorHistorySaved=false;
+    objectKind.textContent=typeDisplayName(object);
+    labelField.value=object.label||'';
+    notesField.value=object.notes||'';
+    rotateBtn.hidden=object.type!=='door';
+    const related=state.connections.filter(c=>sameId(c.fromObjectId,object.id)||sameId(c.toObjectId,object.id)||sameId(c.doorObjectId,object.id));
+    const invalid=related.filter(c=>c.status==='invalid');
+    connectionWarning.hidden=!invalid.length;
+    connectionWarning.textContent=invalid.length?`${invalid.length} connection${invalid.length===1?'':'s'} need attention. Move the connected geometry back together or delete/rebuild the connection.`:'';
+    showSheetSection(objectEditor,objectDisplayName(object));
+  }
+
+  function openMenu(){showSheetSection(menu,'Dungeon')}
+
+  function openMarkerPicker(){
+    showSheetSection(markerPicker,'Choose Marker');
+  }
+
+  function buildMarkerPicker(){
+    const grid=document.getElementById('markerGrid');
+    grid.innerHTML='';
+    Object.entries(markerCatalog).forEach(([key,item])=>{
+      const button=document.createElement('button');
+      button.className='marker-choice';
+      button.type='button';
+      button.dataset.markerType=key;
+      const glyph=document.createElement('span');
+      glyph.className='marker-glyph';
+      glyph.textContent=item.glyph;
+      const text=document.createElement('span');
+      text.textContent=item.label;
+      button.append(glyph,text);
+      button.addEventListener('click',()=>{
+        activeMarkerType=key;
+        setTool('marker');
+        forceCloseSheet();
+        flash(`${item.label} marker ready`);
+      });
+      grid.appendChild(button);
+    });
+  }
+
+  function setTool(nextTool){
+    clearLongPress();
+    gesture=null;
+    previewLayer.innerHTML='';
+    tool=nextTool;
+    document.querySelectorAll('[data-tool]').forEach(button=>button.classList.toggle('active',button.dataset.tool===tool));
+    const messages={
+      select:'Drag empty space to pan. Tap an object to select it.',
+      room:'Drag to make a room. Use two fingers to zoom.',
+      hallway:'Drag to make a hallway. Use two fingers to zoom.',
+      door:`Tap to place a ${doorOrientation} door.`,
+      marker:`Tap to place: ${markerCatalog[activeMarkerType].label}.`,
+      erase:'Tap an object to erase it.'
+    };
+    status.textContent=messages[tool]||'';
+  }
+
+  function updateViewport(){
+    const width=Math.max(1,workspace.clientWidth);
+    const height=Math.max(1,workspace.clientHeight);
+    board.setAttribute('viewBox',`${viewport.x} ${viewport.y} ${width/viewport.zoom} ${height/viewport.zoom}`);
+    const margin=Math.max(2400,width/viewport.zoom*2,height/viewport.zoom*2);
+    canvasBg.setAttribute('x',viewport.x-margin);
+    canvasBg.setAttribute('y',viewport.y-margin);
+    canvasBg.setAttribute('width',width/viewport.zoom+margin*2);
+    canvasBg.setAttribute('height',height/viewport.zoom+margin*2);
+    zoomLevel.textContent=`${Math.round(viewport.zoom*100)}%`;
+  }
+
+  function worldPoint(clientX,clientY,snapToGrid=true){
+    const rect=board.getBoundingClientRect();
+    const point={
+      x:viewport.x+(clientX-rect.left)/viewport.zoom,
+      y:viewport.y+(clientY-rect.top)/viewport.zoom
+    };
+    return snapToGrid?{x:snap(point.x),y:snap(point.y)}:point;
+  }
+
+  function setZoomAt(nextZoom,clientX,clientY,anchor=null){
+    const zoom=clamp(nextZoom,MIN_ZOOM,MAX_ZOOM);
+    const rect=board.getBoundingClientRect();
+    const localX=clientX-rect.left,localY=clientY-rect.top;
+    const worldAnchor=anchor||worldPoint(clientX,clientY,false);
+    viewport.zoom=zoom;
+    viewport.x=worldAnchor.x-localX/zoom;
+    viewport.y=worldAnchor.y-localY/zoom;
+    updateViewport();
+    scheduleAutosave();
+  }
+
+  function zoomFromCenter(multiplier){
+    const rect=board.getBoundingClientRect();
+    setZoomAt(viewport.zoom*multiplier,rect.left+rect.width/2,rect.top+rect.height/2);
+  }
+
+  function structuralRects(object){
+    if(!isStructural(object))return [];
+    if(object.type==='hallway'&&Array.isArray(object.points)){
+      const rects=[];
+      for(let index=1;index<object.points.length;index++){
+        const a=object.points[index-1],b=object.points[index];
+        if(a[0]===b[0]){
+          rects.push({x1:a[0]-GRID/2,y1:Math.min(a[1],b[1])-GRID/2,x2:a[0]+GRID/2,
+            y2:Math.max(a[1],b[1])+GRID/2,orientation:'vertical',parent:object});
+        }else{
+          rects.push({x1:Math.min(a[0],b[0])-GRID/2,y1:a[1]-GRID/2,x2:Math.max(a[0],b[0])+GRID/2,
+            y2:a[1]+GRID/2,orientation:'horizontal',parent:object});
+        }
+      }
+      return rects;
+    }
+    return [{x1:object.x,y1:object.y,x2:object.x+object.w,y2:object.y+object.h,
+      orientation:object.type==='room'?'area':object.w>=object.h?'horizontal':'vertical',parent:object}];
+  }
+
+  function candidateForRectPair(a,b){
+    const overlapX=Math.min(a.x2,b.x2)-Math.max(a.x1,b.x1);
+    const overlapY=Math.min(a.y2,b.y2)-Math.max(a.y1,b.y1);
+    const minSpan=GRID*.5;
+    if(Math.abs(a.x2-b.x1)<=EPS&&overlapY>=minSpan){
+      return {position:{x:(a.x2+b.x1)/2,y:(Math.max(a.y1,b.y1)+Math.min(a.y2,b.y2))/2},orientation:'vertical',score:120+overlapY,contact:'edge'};
+    }
+    if(Math.abs(b.x2-a.x1)<=EPS&&overlapY>=minSpan){
+      return {position:{x:(b.x2+a.x1)/2,y:(Math.max(a.y1,b.y1)+Math.min(a.y2,b.y2))/2},orientation:'vertical',score:120+overlapY,contact:'edge'};
+    }
+    if(Math.abs(a.y2-b.y1)<=EPS&&overlapX>=minSpan){
+      return {position:{x:(Math.max(a.x1,b.x1)+Math.min(a.x2,b.x2))/2,y:(a.y2+b.y1)/2},orientation:'horizontal',score:120+overlapX,contact:'edge'};
+    }
+    if(Math.abs(b.y2-a.y1)<=EPS&&overlapX>=minSpan){
+      return {position:{x:(Math.max(a.x1,b.x1)+Math.min(a.x2,b.x2))/2,y:(b.y2+a.y1)/2},orientation:'horizontal',score:120+overlapX,contact:'edge'};
+    }
+    if(overlapX<=EPS||overlapY<=EPS)return null;
+
+    const aHall=a.parent.type==='hallway',bHall=b.parent.type==='hallway';
+    if(aHall&&bHall){
+      if(a.orientation!==b.orientation){
+        return {position:{x:(Math.max(a.x1,b.x1)+Math.min(a.x2,b.x2))/2,
+          y:(Math.max(a.y1,b.y1)+Math.min(a.y2,b.y2))/2},
+          orientation:a.orientation==='horizontal'?'vertical':'horizontal',score:95+Math.min(overlapX,overlapY),contact:'junction'};
+      }
+      const horizontal=a.orientation==='horizontal';
+      const crossOverlap=horizontal?overlapY:overlapX;
+      const aCross=horizontal?a.y2-a.y1:a.x2-a.x1;
+      const bCross=horizontal?b.y2-b.y1:b.x2-b.x1;
+      const alongOverlap=horizontal?overlapX:overlapY;
+      const maxThickness=Math.max(aCross,bCross);
+      if(crossOverlap/Math.min(aCross,bCross)>=.7&&alongOverlap<=maxThickness*1.5){
+        return {position:{x:(Math.max(a.x1,b.x1)+Math.min(a.x2,b.x2))/2,
+          y:(Math.max(a.y1,b.y1)+Math.min(a.y2,b.y2))/2},
+          orientation:horizontal?'vertical':'horizontal',score:85+crossOverlap,contact:'junction'};
+      }
+      return null;
+    }
+
+    const hall=aHall?a:b;
+    const room=aHall?b:a;
+    if(hall.parent.type!=='hallway'||room.parent.type!=='room')return null;
+    const thickness=hall.orientation==='horizontal'?hall.y2-hall.y1:hall.x2-hall.x1;
+    const maxPenetration=Math.max(GRID,thickness*1.35);
+    if(hall.orientation==='horizontal'&&overlapY>=Math.min(thickness,room.y2-room.y1)*.55){
+      if(hall.x1<room.x1&&hall.x2>room.x1&&hall.x2-room.x1<=maxPenetration){
+        return {position:{x:room.x1,y:(Math.max(hall.y1,room.y1)+Math.min(hall.y2,room.y2))/2},orientation:'vertical',score:105,contact:'threshold'};
+      }
+      if(hall.x2>room.x2&&hall.x1<room.x2&&room.x2-hall.x1<=maxPenetration){
+        return {position:{x:room.x2,y:(Math.max(hall.y1,room.y1)+Math.min(hall.y2,room.y2))/2},orientation:'vertical',score:105,contact:'threshold'};
+      }
+    }
+    if(hall.orientation==='vertical'&&overlapX>=Math.min(thickness,room.x2-room.x1)*.55){
+      if(hall.y1<room.y1&&hall.y2>room.y1&&hall.y2-room.y1<=maxPenetration){
+        return {position:{x:(Math.max(hall.x1,room.x1)+Math.min(hall.x2,room.x2))/2,y:room.y1},orientation:'horizontal',score:105,contact:'threshold'};
+      }
+      if(hall.y2>room.y2&&hall.y1<room.y2&&room.y2-hall.y1<=maxPenetration){
+        return {position:{x:(Math.max(hall.x1,room.x1)+Math.min(hall.x2,room.x2))/2,y:room.y2},orientation:'horizontal',score:105,contact:'threshold'};
+      }
+    }
+    return null;
+  }
+
+  function detectConnectionBetween(first,second,nearPosition=null){
+    if(!isStructural(first)||!isStructural(second))return null;
+    if(first.type!=='hallway'&&second.type!=='hallway')return null;
+    const candidates=[];
+    structuralRects(first).forEach(a=>structuralRects(second).forEach(b=>{
+      const candidate=candidateForRectPair(a,b);
+      if(candidate)candidates.push(candidate);
+    }));
+    if(!candidates.length)return null;
+    candidates.sort((a,b)=>{
+      if(nearPosition)return distance(a.position,nearPosition)-distance(b.position,nearPosition)||b.score-a.score;
+      return b.score-a.score;
+    });
+    return candidates[0];
+  }
+
+  function connectionExistsBetween(firstId,secondId,position){
+    return state.connections.some(connection=>{
+      const samePair=(sameId(connection.fromObjectId,firstId)&&sameId(connection.toObjectId,secondId))||
+        (sameId(connection.fromObjectId,secondId)&&sameId(connection.toObjectId,firstId));
+      return samePair&&distance(connection.position,position)<GRID*1.5;
+    });
+  }
+
+  function discoverConnectionsFor(object){
+    if(!isStructural(object))return [];
+    return state.objects.filter(other=>!sameId(other.id,object.id)&&other.floorId===object.floorId&&isStructural(other))
+      .map(other=>{
+        const detected=detectConnectionBetween(object,other);
+        return detected&&!connectionExistsBetween(object.id,other.id,detected.position)?{
+          fromObjectId:object.id,toObjectId:other.id,floorId:object.floorId,...detected
+        }:null;
+      }).filter(Boolean);
+  }
+
+  function validateConnection(connection,moveLinkedDoor=true){
+    const from=getObject(connection.fromObjectId),to=getObject(connection.toObjectId);
+    if(!from||!to){connection.status='invalid';connection.reason='Connected object is missing';return false}
+    const detected=detectConnectionBetween(from,to,connection.position);
+    if(!detected){connection.status='invalid';connection.reason='Connected geometry no longer meets';return false}
+    const linkedDoor=getObject(connection.doorObjectId);
+    if(linkedDoor&&!moveLinkedDoor){
+      const closeEnough=distance({x:linkedDoor.x,y:linkedDoor.y},detected.position)<=GRID*.75;
+      const orientationMatches=linkedDoor.orientation===detected.orientation;
+      if(!closeEnough||!orientationMatches){
+        connection.status='invalid';
+        connection.reason='Door moved away from its connection';
+        return false;
+      }
+    }
+    connection.position={...detected.position};
+    connection.orientation=detected.orientation;
+    connection.status='valid';
+    connection.reason='';
+    if(linkedDoor&&moveLinkedDoor){
+      linkedDoor.x=detected.position.x;
+      linkedDoor.y=detected.position.y;
+      linkedDoor.orientation=detected.orientation;
+    }
+    return true;
+  }
+
+  function revalidateConnectionsForObject(objectId){
+    let invalidCount=0;
+    state.connections.filter(connection=>sameId(connection.fromObjectId,objectId)||sameId(connection.toObjectId,objectId)||
+      sameId(connection.doorObjectId,objectId)).forEach(connection=>{
+        const movingDoor=sameId(connection.doorObjectId,objectId);
+        if(!validateConnection(connection,!movingDoor))invalidCount++;
+      });
+    return invalidCount;
+  }
+
+  function validateAllConnections(){
+    state.connections.forEach(connection=>validateConnection(connection,false));
+  }
+
+  function beginConnectionPrompts(candidates){
+    connectionQueue=candidates;
+    connectionQueueTotal=candidates.length;
+    openNextConnectionPrompt();
+  }
+
+  function openNextConnectionPrompt(){
+    if(!connectionQueue.length){
+      const object=selected();
+      connectionQueueTotal=0;
+      render();
+      if(object)openObjectSheet();
+      return;
+    }
+    const candidate=connectionQueue[0];
+    const from=getObject(candidate.fromObjectId),to=getObject(candidate.toObjectId);
+    const completed=connectionQueueTotal-connectionQueue.length+1;
+    document.getElementById('connectionProgress').textContent=`Connection ${completed} of ${connectionQueueTotal}`;
+    document.getElementById('connectionText').textContent=`${objectDisplayName(from)} meets ${objectDisplayName(to)}. How should they connect?`;
+    showSheetSection(connectionPicker,'Smart Connection');
+  }
+
+  function applyConnectionChoice(choice){
+    const candidate=connectionQueue.shift();
+    if(!candidate)return;
+    if(choice!=='separate'){
+      const connection={
+        id:nextConnectionId(),type:choice,floorId:candidate.floorId,
+        fromObjectId:candidate.fromObjectId,toObjectId:candidate.toObjectId,
+        position:{...candidate.position},orientation:candidate.orientation,
+        doorObjectId:null,status:'valid',reason:''
+      };
+      if(choice==='door'||choice==='secret-door'){
+        const door={
+          id:nextId(),type:'door',floorId:candidate.floorId,x:candidate.position.x,y:candidate.position.y,
+          orientation:candidate.orientation,doorType:choice,connectionId:connection.id,generatedByConnection:true,
+          label:'',notes:''
+        };
+        state.objects.push(door);
+        connection.doorObjectId=door.id;
+      }
+      state.connections.push(connection);
+    }
+    render();
+    openNextConnectionPrompt();
+  }
+
+  function addTextLabel(group,object,x,y){
+    if(!object.label)return;
+    const text=svgEl('text',{x,y,fill:'#1e1d1a','font-size':13,'pointer-events':'none'});
+    text.textContent=object.label;
+    group.appendChild(text);
+  }
+
+  function renderStructure(object){
+    const group=svgEl('g',{'data-id':object.id,'data-object-type':object.type,style:'cursor:pointer'});
+    const isSelected=sameId(object.id,selectedId);
+    if(object.type==='room'){
+      group.appendChild(svgEl('rect',{x:object.x,y:object.y,width:object.w,height:object.h,fill:'#f7f3e8',
+        stroke:isSelected?'#7a5c20':'#1e1d1a','stroke-width':isSelected?5:3}));
+      addTextLabel(group,object,object.x+8,object.y+18);
+    }else if(Array.isArray(object.points)){
+      const points=object.points.map(point=>point.join(',')).join(' ');
+      group.appendChild(svgEl('polyline',{points,fill:'none',stroke:'transparent','stroke-width':42,
+        'stroke-linecap':'square','stroke-linejoin':'miter'}));
+      group.appendChild(svgEl('polyline',{points,fill:'none',stroke:isSelected?'#7a5c20':'#1e1d1a','stroke-width':isSelected?30:26,
+        'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
+      group.appendChild(svgEl('polyline',{points,fill:'none',stroke:'#e4d5b7','stroke-width':18,
+        'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
+      if(object.label){
+        const first=object.points[0];
+        addTextLabel(group,object,first[0]+8,first[1]-14);
+      }
+    }else{
+      group.appendChild(svgEl('rect',{x:object.x,y:object.y,width:object.w,height:object.h,fill:'url(#hallwayHatch)',
+        stroke:isSelected?'#7a5c20':'#1e1d1a','stroke-width':isSelected?5:3}));
+      addTextLabel(group,object,object.x+8,object.y+18);
+    }
+    structuresLayer.appendChild(group);
+  }
+
+  function linePoints(x,y,orientation,length){
+    return orientation==='horizontal'?{x1:x-length/2,y1:y,x2:x+length/2,y2:y}:{x1:x,y1:y-length/2,x2:x,y2:y+length/2};
+  }
+
+  function renderConnections(){
+    connectionsLayer.innerHTML='';
+    state.connections.filter(c=>c.floorId===state.activeFloorId).forEach(connection=>{
+      const {x,y}=connection.position;
+      if(connection.status==='invalid'){
+        connectionsLayer.appendChild(svgEl('circle',{cx:x,cy:y,r:11,fill:'#fffdf8',stroke:'#a33a31','stroke-width':3,'stroke-dasharray':'4 3','pointer-events':'none'}));
+        const mark=svgEl('text',{x,y:y+5,'text-anchor':'middle','font-size':14,'font-weight':800,fill:'#a33a31','pointer-events':'none'});
+        mark.textContent='!';
+        connectionsLayer.appendChild(mark);
+      }else if(connection.type==='open-passage'){
+        const points=linePoints(x,y,connection.orientation,GRID*.8);
+        connectionsLayer.appendChild(svgEl('line',{...points,stroke:'#fffdf8','stroke-width':9,'stroke-linecap':'square','pointer-events':'none'}));
+        const cap1=connection.orientation==='horizontal'?{x1:points.x1,y1:y-4,x2:points.x1,y2:y+4}:{x1:x-4,y1:points.y1,x2:x+4,y2:points.y1};
+        const cap2=connection.orientation==='horizontal'?{x1:points.x2,y1:y-4,x2:points.x2,y2:y+4}:{x1:x-4,y1:points.y2,x2:x+4,y2:points.y2};
+        connectionsLayer.appendChild(svgEl('line',{...cap1,stroke:'#1e1d1a','stroke-width':2,'pointer-events':'none'}));
+        connectionsLayer.appendChild(svgEl('line',{...cap2,stroke:'#1e1d1a','stroke-width':2,'pointer-events':'none'}));
+      }
+    });
+  }
+
+  function renderDoor(object){
+    const group=svgEl('g',{'data-id':object.id,'data-object-type':'door',style:'cursor:pointer'});
+    const selectedDoor=sameId(object.id,selectedId);
+    const connection=object.connectionId!==null?state.connections.find(c=>sameId(c.id,object.connectionId)):null;
+    const invalid=connection&&connection.status==='invalid';
+    const points=linePoints(object.x,object.y,object.orientation,28);
+    group.appendChild(svgEl('line',{...points,stroke:'transparent','stroke-width':30}));
+    group.appendChild(svgEl('line',{...points,stroke:invalid?'#a33a31':selectedDoor?'#7a5c20':'#1e1d1a','stroke-width':6,
+      'stroke-dasharray':object.doorType==='secret-door'?'7 4':null,'pointer-events':'none'}));
+    if(object.doorType==='secret-door'){
+      const secret=svgEl('text',{x:object.x+7,y:object.y-7,'font-size':11,'font-weight':800,fill:invalid?'#a33a31':'#1e1d1a','pointer-events':'none'});
+      secret.textContent='S';
+      group.appendChild(secret);
+    }
+    addTextLabel(group,object,object.x+10,object.y+19);
+    detailsLayer.appendChild(group);
+  }
+
+  function renderMarker(object){
+    const group=svgEl('g',{'data-id':object.id,'data-object-type':'marker',style:'cursor:pointer'});
+    const isSelected=sameId(object.id,selectedId);
+    group.appendChild(svgEl('circle',{cx:object.x,cy:object.y,r:17,fill:'#f7f3e8',stroke:isSelected?'#7a5c20':'#1e1d1a','stroke-width':isSelected?5:3}));
+    const glyph=svgEl('text',{x:object.x,y:object.y+5,'text-anchor':'middle','font-size':14,'font-weight':800,fill:'#1e1d1a','pointer-events':'none'});
+    glyph.textContent=markerCatalog[object.markerType]?.glyph||'?';
+    group.appendChild(glyph);
+    addTextLabel(group,object,object.x+23,object.y+5);
+    detailsLayer.appendChild(group);
   }
 
   function render(){
-    objectsLayer.innerHTML='';
-    for(const o of state.objects){
-      const g=svgEl('g',{'data-id':o.id,style:'cursor:pointer'});
-      const sel=o.id===selectedId;
-      if(o.type==='room'){
-        g.appendChild(svgEl('rect',{x:o.x,y:o.y,width:o.w,height:o.h,fill:'#f7f3e8',
-          stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':sel?5:3}));
-        if(o.label){
-          const t=svgEl('text',{x:o.x+8,y:o.y+18,fill:'#1e1d1a','font-size':13,'pointer-events':'none'});
-          t.textContent=o.label;g.appendChild(t);
-        }
-      }else if(o.type==='corridor'){
-        if(Array.isArray(o.points)){
-          const pts=o.points.map(p=>p.join(',')).join(' ');
-          g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:'transparent','stroke-width':42,
-            'stroke-linecap':'square','stroke-linejoin':'miter'}));
-          g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':26,
-            'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
-          g.appendChild(svgEl('polyline',{points:pts,fill:'none',stroke:'#e4d5b7','stroke-width':18,
-            'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
-        }else{
-          g.appendChild(svgEl('rect',{x:o.x,y:o.y,width:o.w,height:o.h,fill:'url(#hallwayHatch)',
-            stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':sel?5:3}));
-          if(o.label){
-            const t=svgEl('text',{x:o.x+8,y:o.y+18,fill:'#1e1d1a','font-size':13,'pointer-events':'none'});
-            t.textContent=o.label;g.appendChild(t);
-          }
-        }
-      }else if(o.type==='door'){
-        const h=o.orientation==='horizontal',len=28;
-        const x1=h?o.x-len/2:o.x,y1=h?o.y:o.y-len/2,x2=h?o.x+len/2:o.x,y2=h?o.y:o.y+len/2;
-        g.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:'transparent','stroke-width':28}));
-        g.appendChild(svgEl('line',{x1,y1,x2,y2,stroke:sel?'#7a5c20':'#1e1d1a','stroke-width':6,'pointer-events':'none'}));
-      }
-      objectsLayer.appendChild(g);
-    }
-    autosave();
+    structuresLayer.innerHTML='';
+    detailsLayer.innerHTML='';
+    activeFloorObjects().filter(isStructural).forEach(renderStructure);
+    renderConnections();
+    activeFloorObjects().filter(o=>o.type==='door').forEach(renderDoor);
+    activeFloorObjects().filter(o=>o.type==='marker').forEach(renderMarker);
+    scheduleAutosave();
   }
 
-  function roomPreview(a,b,kind='room'){
+  function previewRectangle(start,end,kind){
     previewLayer.innerHTML='';
-    const hallway=kind==='corridor';
-    previewLayer.appendChild(svgEl('rect',{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),
-      width:Math.abs(b.x-a.x),height:Math.abs(b.y-a.y),
-      fill:hallway?'url(#hallwayHatch)':'rgba(122,92,32,.08)',
-      opacity:hallway?.9:1,
+    const hallway=kind==='hallway';
+    previewLayer.appendChild(svgEl('rect',{x:Math.min(start.x,end.x),y:Math.min(start.y,end.y),
+      width:Math.abs(end.x-start.x),height:Math.abs(end.y-start.y),
+      fill:hallway?'url(#hallwayHatch)':'rgba(122,92,32,.08)',opacity:hallway?.9:1,
       stroke:'#7a5c20','stroke-width':3,'stroke-dasharray':hallway?'4 4':'8 6'}));
   }
-  function corridorPreview(mouse=null){
-    previewLayer.innerHTML='';if(!corridorDraft.length)return;
-    const pts=corridorDraft.map(p=>[...p]);
-    if(mouse)pts.push(orth(pts[pts.length-1],mouse));
-    previewLayer.appendChild(svgEl('polyline',{points:pts.map(p=>p.join(',')).join(' '),fill:'none',
-      stroke:'#7a5c20','stroke-width':25,'stroke-linecap':'square','stroke-linejoin':'miter',opacity:.45}));
-  }
-  function finishCorridor(){
-    if(corridorDraft.length>=2){
-      saveHistory();const o={id:nextId(),type:'corridor',points:corridorDraft.map(p=>[...p]),label:'',notes:''};
-      state.objects.push(o);selectedId=o.id;render();openObjectSheet();
-    }
-    corridorDraft=[];previewLayer.innerHTML='';
-  }
-  function openObjectSheet(){
-    const o=selected();if(!o)return;
-    document.getElementById('sheetTitle').textContent=o.type==='corridor'?'Hallway':o.type[0].toUpperCase()+o.type.slice(1);
-    menu.hidden=true;objectEditor.hidden=false;labelField.value=o.label||'';notesField.value=o.notes||'';
-    rotateBtn.hidden=o.type!=='door';sheet.classList.add('open');
-  }
-  function openMenu(){
-    document.getElementById('sheetTitle').textContent='Dungeon';
-    objectEditor.hidden=true;menu.hidden=false;sheet.classList.add('open');
-  }
-  function closeSheet(){sheet.classList.remove('open')}
 
-  board.addEventListener('pointerdown',e=>{
-    if(e.pointerType==='mouse'&&e.button!==0)return;
-    if(tool==='room'||tool==='corridor'){
-      activePointer=e.pointerId;board.setPointerCapture(e.pointerId);roomStart=point(e);e.preventDefault();
+  function objectBounds(object){
+    if(object.type==='room'||(object.type==='hallway'&&!Array.isArray(object.points))){
+      return {x1:object.x,y1:object.y,x2:object.x+object.w,y2:object.y+object.h};
     }
-  });
-  board.addEventListener('pointermove',e=>{
-    if((tool==='room'||tool==='corridor')&&roomStart&&activePointer===e.pointerId){
-      roomPreview(roomStart,point(e),tool);e.preventDefault();
+    if(object.type==='hallway'&&Array.isArray(object.points)){
+      const xs=object.points.map(p=>p[0]),ys=object.points.map(p=>p[1]);
+      return {x1:Math.min(...xs)-GRID/2,y1:Math.min(...ys)-GRID/2,x2:Math.max(...xs)+GRID/2,y2:Math.max(...ys)+GRID/2};
     }
-  });
-  board.addEventListener('pointerup',e=>{
-    if((tool!=='room'&&tool!=='corridor')||!roomStart||activePointer!==e.pointerId)return;
-    const b=point(e),a=roomStart,x=Math.min(a.x,b.x),y=Math.min(a.y,b.y),w=Math.abs(b.x-a.x),h=Math.abs(b.y-a.y);
-    if(w>=GRID&&h>=GRID){
-      saveHistory();
-      const o={id:nextId(),type:tool==='corridor'?'corridor':'room',x,y,w,h,label:'',notes:''};
-      state.objects.push(o);selectedId=o.id;
+    return {x1:object.x-20,y1:object.y-20,x2:object.x+20,y2:object.y+20};
+  }
+
+  function fitDungeon(){
+    const objects=activeFloorObjects();
+    if(!objects.length){viewport={x:-GRID*2,y:-GRID*2,zoom:1};updateViewport();scheduleAutosave();return}
+    const bounds=objects.map(objectBounds);
+    const x1=Math.min(...bounds.map(b=>b.x1)),y1=Math.min(...bounds.map(b=>b.y1));
+    const x2=Math.max(...bounds.map(b=>b.x2)),y2=Math.max(...bounds.map(b=>b.y2));
+    const padding=GRID*3;
+    const width=Math.max(GRID*4,x2-x1+padding*2),height=Math.max(GRID*4,y2-y1+padding*2);
+    const zoom=clamp(Math.min(workspace.clientWidth/width,workspace.clientHeight/height),MIN_ZOOM,MAX_ZOOM);
+    viewport.zoom=zoom;
+    viewport.x=(x1+x2)/2-workspace.clientWidth/(2*zoom);
+    viewport.y=(y1+y2)/2-workspace.clientHeight/(2*zoom);
+    updateViewport();
+    scheduleAutosave();
+  }
+
+  function targetObjectFromEvent(event){
+    const group=event.target.closest?.('[data-id]');
+    return group?getObject(group.dataset.id):null;
+  }
+
+  function clearLongPress(){
+    if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null}
+  }
+
+  function startMove(currentGesture){
+    const object=getObject(currentGesture.objectId);
+    if(!object||!sameId(object.id,selectedId))return;
+    clearLongPress();
+    saveHistory();
+    currentGesture.type='move';
+    currentGesture.original=deepClone(object);
+    currentGesture.startWorld=worldPoint(currentGesture.startClient.x,currentGesture.startClient.y,false);
+    currentGesture.historySaved=true;
+    forceCloseSheet();
+    status.textContent='Moving object. Release to place on the grid.';
+    if(navigator.vibrate)navigator.vibrate(12);
+  }
+
+  function moveObject(object,original,deltaX,deltaY){
+    const dx=snap(deltaX),dy=snap(deltaY);
+    if(object.type==='room'||(object.type==='hallway'&&!Array.isArray(object.points))){
+      object.x=original.x+dx;object.y=original.y+dy;
+    }else if(object.type==='hallway'&&Array.isArray(object.points)){
+      object.points=original.points.map(point=>[point[0]+dx,point[1]+dy]);
+    }else{
+      object.x=original.x+dx;object.y=original.y+dy;
     }
-    roomStart=null;activePointer=null;previewLayer.innerHTML='';render();if(selectedId)openObjectSheet();e.preventDefault();
+  }
+
+  function cancelGestureForPinch(){
+    clearLongPress();
+    if(gesture?.type==='draw')previewLayer.innerHTML='';
+    if(gesture?.type==='move'&&gesture.original){
+      const object=getObject(gesture.objectId);
+      if(object)Object.assign(object,deepClone(gesture.original));
+      if(gesture.historySaved)history.pop();
+      render();
+    }
+  }
+
+  function startPinch(){
+    cancelGestureForPinch();
+    const entries=[...pointers.entries()].slice(0,2);
+    if(entries.length<2)return;
+    const [first,second]=entries.map(entry=>entry[1]);
+    const center={x:(first.x+second.x)/2,y:(first.y+second.y)/2};
+    gesture={
+      type:'pinch',pointerIds:entries.map(entry=>entry[0]),
+      startDistance:Math.max(1,distance(first,second)),startZoom:viewport.zoom,
+      anchorWorld:worldPoint(center.x,center.y,false)
+    };
+    previewLayer.innerHTML='';
+    forceCloseSheet();
+  }
+
+  function finishDraw(endPoint){
+    const start=gesture.startWorld;
+    const x=Math.min(start.x,endPoint.x),y=Math.min(start.y,endPoint.y);
+    const w=Math.abs(endPoint.x-start.x),h=Math.abs(endPoint.y-start.y);
+    previewLayer.innerHTML='';
+    if(w<GRID||h<GRID)return;
+    saveHistory();
+    const object={id:nextId(),type:gesture.kind,floorId:state.activeFloorId,shape:'rect',x,y,w,h,label:'',notes:''};
+    state.objects.push(object);
+    selectedId=object.id;
+    render();
+    const candidates=discoverConnectionsFor(object);
+    if(candidates.length)beginConnectionPrompts(candidates);else openObjectSheet();
+  }
+
+  function placePointObject(kind,point){
+    saveHistory();
+    const object=kind==='door'?{
+      id:nextId(),type:'door',floorId:state.activeFloorId,x:point.x,y:point.y,orientation:doorOrientation,
+      doorType:'door',connectionId:null,generatedByConnection:false,label:'',notes:''
+    }:{
+      id:nextId(),type:'marker',floorId:state.activeFloorId,x:point.x,y:point.y,markerType:activeMarkerType,
+      targetFloorId:null,label:'',notes:''
+    };
+    state.objects.push(object);
+    selectedId=object.id;
+    render();
+    openObjectSheet();
+  }
+
+  function deleteObjectWithRelationships(objectId){
+    const related=state.connections.filter(connection=>sameId(connection.fromObjectId,objectId)||sameId(connection.toObjectId,objectId)||sameId(connection.doorObjectId,objectId));
+    const generatedDoorIds=related.map(c=>c.doorObjectId).filter(id=>id!==null&&!sameId(id,objectId));
+    const connectionIds=new Set(related.map(c=>String(c.id)));
+    state.connections=state.connections.filter(c=>!connectionIds.has(String(c.id)));
+    state.objects=state.objects.filter(o=>!sameId(o.id,objectId)&&!generatedDoorIds.some(id=>sameId(id,o.id)));
+    if(sameId(selectedId,objectId))selectedId=null;
+  }
+
+  board.addEventListener('pointerdown',event=>{
+    if(event.pointerType==='mouse'&&event.button!==0)return;
+    if(connectionQueue.length){flash('Choose the connection first');return}
+    board.setPointerCapture?.(event.pointerId);
+    pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,pointerType:event.pointerType});
+    if(event.pointerType==='touch'&&pointers.size>=2){startPinch();event.preventDefault();return}
+    if(gesture?.type==='pinch'||gesture?.type==='blocked'){event.preventDefault();return}
+    const object=targetObjectFromEvent(event);
+    const startClient={x:event.clientX,y:event.clientY};
+    if(tool==='room'||tool==='hallway'){
+      gesture={type:'draw',pointerId:event.pointerId,kind:tool,startClient,startWorld:worldPoint(event.clientX,event.clientY)};
+    }else if(tool==='select'){
+      if(object){
+        gesture={type:'object-pending',pointerId:event.pointerId,objectId:object.id,startClient,lastClient:startClient,moved:false};
+        if(event.pointerType==='touch'&&sameId(object.id,selectedId)){
+          const pending=gesture;
+          longPressTimer=setTimeout(()=>{
+            if(gesture===pending&&distance(pending.startClient,pending.lastClient)<10)startMove(pending);
+          },260);
+        }
+      }else{
+        gesture={type:'pan',pointerId:event.pointerId,startClient,startViewport:{...viewport},moved:false};
+        forceCloseSheet();
+      }
+    }else{
+      gesture={type:'tool-tap',pointerId:event.pointerId,kind:tool,objectId:object?.id??null,startClient,moved:false};
+    }
+    event.preventDefault();
   });
 
-  board.addEventListener('click',e=>{
-    if(tool==='room'||tool==='corridor')return;
-    const group=e.target.closest('[data-id]'),id=group?Number(group.dataset.id):null;
+  board.addEventListener('pointermove',event=>{
+    const pointer=pointers.get(event.pointerId);
+    if(pointer){pointer.x=event.clientX;pointer.y=event.clientY}
+    if(!gesture)return;
+    if(gesture.type==='pinch'){
+      const first=pointers.get(gesture.pointerIds[0]),second=pointers.get(gesture.pointerIds[1]);
+      if(!first||!second)return;
+      const center={x:(first.x+second.x)/2,y:(first.y+second.y)/2};
+      const scale=distance(first,second)/gesture.startDistance;
+      setZoomAt(gesture.startZoom*scale,center.x,center.y,gesture.anchorWorld);
+    }else if(gesture.pointerId===event.pointerId&&gesture.type==='draw'){
+      previewRectangle(gesture.startWorld,worldPoint(event.clientX,event.clientY),gesture.kind);
+    }else if(gesture.pointerId===event.pointerId&&gesture.type==='pan'){
+      const dx=event.clientX-gesture.startClient.x,dy=event.clientY-gesture.startClient.y;
+      if(Math.hypot(dx,dy)>3)gesture.moved=true;
+      viewport.x=gesture.startViewport.x-dx/gesture.startViewport.zoom;
+      viewport.y=gesture.startViewport.y-dy/gesture.startViewport.zoom;
+      updateViewport();
+    }else if(gesture.pointerId===event.pointerId&&gesture.type==='object-pending'){
+      gesture.lastClient={x:event.clientX,y:event.clientY};
+      const moved=Math.hypot(event.clientX-gesture.startClient.x,event.clientY-gesture.startClient.y);
+      if(event.pointerType==='touch'&&moved>=10)clearLongPress();
+      if(event.pointerType!=='touch'&&moved>=4&&sameId(gesture.objectId,selectedId))startMove(gesture);
+    }
+    if(gesture&&gesture.pointerId===event.pointerId&&gesture.type==='move'){
+      const object=getObject(gesture.objectId);
+      const current=worldPoint(event.clientX,event.clientY,false);
+      if(object){
+        moveObject(object,gesture.original,current.x-gesture.startWorld.x,current.y-gesture.startWorld.y);
+        gesture.moved=true;
+        render();
+      }
+    }else if(gesture&&gesture.pointerId===event.pointerId&&gesture.type==='tool-tap'){
+      if(Math.hypot(event.clientX-gesture.startClient.x,event.clientY-gesture.startClient.y)>8)gesture.moved=true;
+    }
+    event.preventDefault();
+  });
 
-    if(tool==='select'){selectedId=id;render();if(id)openObjectSheet();return}
-    if(tool==='erase'){
-      if(id){saveHistory();state.objects=state.objects.filter(o=>o.id!==id);if(selectedId===id)selectedId=null;render()}
+  function finishPointer(event,cancelled=false){
+    const currentGesture=gesture;
+    clearLongPress();
+    if(currentGesture?.type==='pinch'){
+      pointers.delete(event.pointerId);
+      gesture=pointers.size?{type:'blocked'}:null;
+      scheduleAutosave();
+      event.preventDefault();
       return;
     }
-    if(tool==='door'){
-      const p=point(e);saveHistory();const o={id:nextId(),type:'door',x:p.x,y:p.y,orientation:doorOrientation,label:'',notes:''};
-      state.objects.push(o);selectedId=o.id;render();openObjectSheet();return;
+    if(currentGesture?.type==='blocked'){
+      pointers.delete(event.pointerId);
+      if(!pointers.size)gesture=null;
+      event.preventDefault();
+      return;
     }
+    if(!currentGesture||currentGesture.pointerId!==event.pointerId){pointers.delete(event.pointerId);return}
+
+    if(cancelled){
+      if(currentGesture.type==='draw')previewLayer.innerHTML='';
+      if(currentGesture.type==='move'&&currentGesture.original){
+        const object=getObject(currentGesture.objectId);
+        if(object)Object.assign(object,deepClone(currentGesture.original));
+        if(currentGesture.historySaved)history.pop();
+        render();
+      }
+    }else if(currentGesture.type==='draw'){
+      finishDraw(worldPoint(event.clientX,event.clientY));
+    }else if(currentGesture.type==='pan'){
+      if(!currentGesture.moved){selectedId=null;render()}
+      scheduleAutosave();
+    }else if(currentGesture.type==='object-pending'){
+      const object=getObject(currentGesture.objectId);
+      if(object){selectedId=object.id;render();openObjectSheet()}
+    }else if(currentGesture.type==='move'){
+      const invalid=revalidateConnectionsForObject(currentGesture.objectId);
+      render();
+      setTool('select');
+      flash(invalid?`${invalid} connection${invalid===1?'':'s'} need attention`:'Object moved');
+    }else if(currentGesture.type==='tool-tap'&&!currentGesture.moved){
+      if(currentGesture.kind==='erase'&&currentGesture.objectId!==null){
+        saveHistory();deleteObjectWithRelationships(currentGesture.objectId);render();flash('Deleted');
+      }else if(currentGesture.kind==='door'||currentGesture.kind==='marker'){
+        placePointObject(currentGesture.kind,worldPoint(event.clientX,event.clientY));
+      }
+    }
+    pointers.delete(event.pointerId);
+    gesture=null;
+    event.preventDefault();
+  }
+
+  board.addEventListener('pointerup',event=>finishPointer(event,false));
+  board.addEventListener('pointercancel',event=>finishPointer(event,true));
+
+  workspace.addEventListener('wheel',event=>{
+    if(event.target.closest?.('#zoomControls'))return;
+    event.preventDefault();
+    const delta=event.deltaMode===1?event.deltaY*16:event.deltaY;
+    setZoomAt(viewport.zoom*Math.exp(-delta*.0015),event.clientX,event.clientY);
+  },{passive:false});
+
+  document.querySelectorAll('[data-tool]').forEach(button=>button.addEventListener('click',()=>{
+    const nextTool=button.dataset.tool;
+    if(nextTool==='marker'){
+      setTool('marker');
+      openMarkerPicker();
+    }else{
+      setTool(nextTool);
+      forceCloseSheet();
+    }
+  }));
+
+  document.querySelectorAll('[data-connection-choice]').forEach(button=>button.addEventListener('click',()=>applyConnectionChoice(button.dataset.connectionChoice)));
+  document.getElementById('zoomOutBtn').addEventListener('click',()=>zoomFromCenter(1/1.25));
+  document.getElementById('zoomInBtn').addEventListener('click',()=>zoomFromCenter(1.25));
+  document.getElementById('fitBtn').addEventListener('click',fitDungeon);
+  document.getElementById('undoBtn').addEventListener('click',()=>{
+    if(!history.length){flash('Nothing to undo');return}
+    const normalized=normalizeState(JSON.parse(history.pop()));
+    state=normalized.state;
+    selectedId=null;
+    connectionQueue=[];
+    render();
+    forceCloseSheet();
+    flash('Undone');
+  });
+  document.getElementById('moreBtn').addEventListener('click',openMenu);
+  document.getElementById('closeSheet').addEventListener('click',closeSheet);
+
+  function saveEditorHistoryOnce(){
+    if(editorHistorySaved)return;
+    saveHistory();
+    editorHistorySaved=true;
+  }
+
+  labelField.addEventListener('input',()=>{
+    const object=selected();if(!object)return;
+    saveEditorHistoryOnce();
+    object.label=labelField.value;
+    render();
+    sheetTitle.textContent=objectDisplayName(object);
+  });
+  notesField.addEventListener('input',()=>{
+    const object=selected();if(!object)return;
+    saveEditorHistoryOnce();
+    object.notes=notesField.value;
+    scheduleAutosave();
+  });
+  document.getElementById('deleteBtn').addEventListener('click',()=>{
+    if(selectedId===null)return;
+    saveHistory();
+    deleteObjectWithRelationships(selectedId);
+    render();
+    forceCloseSheet();
+  });
+  rotateBtn.addEventListener('click',()=>{
+    const object=selected();
+    if(!object||object.type!=='door')return;
+    saveHistory();
+    object.orientation=object.orientation==='horizontal'?'vertical':'horizontal';
+    const invalid=revalidateConnectionsForObject(object.id);
+    render();
+    openObjectSheet();
+    flash(invalid?'Door rotated; connection needs attention':'Door rotated');
   });
 
-  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
-  document.getElementById('finishBtn').onclick=closeSheet;
-  document.getElementById('undoBtn').onclick=()=>{if(!history.length)return;state=JSON.parse(history.pop());selectedId=null;corridorDraft=[];render();flash('Undone')};
-  document.getElementById('moreBtn').onclick=openMenu;
-  document.getElementById('closeSheet').onclick=closeSheet;
+  function connectionsForObject(objectId){
+    return state.connections.filter(c=>sameId(c.fromObjectId,objectId)||sameId(c.toObjectId,objectId)||sameId(c.doorObjectId,objectId)).map(c=>c.id);
+  }
 
-  labelField.oninput=()=>{const o=selected();if(!o)return;o.label=labelField.value;render()};
-  notesField.oninput=()=>{const o=selected();if(!o)return;o.notes=notesField.value;autosave()};
-  document.getElementById('deleteBtn').onclick=()=>{if(!selectedId)return;saveHistory();state.objects=state.objects.filter(o=>o.id!==selectedId);selectedId=null;render();closeSheet()};
-  rotateBtn.onclick=()=>{const o=selected();if(!o||o.type!=='door')return;saveHistory();o.orientation=o.orientation==='horizontal'?'vertical':'horizontal';render();flash('Door rotated')};
+  function exportObject(object){
+    const common={
+      id:object.id,type:object.type,floorId:object.floorId,label:object.label,notes:object.notes,
+      connectionIds:connectionsForObject(object.id)
+    };
+    if(object.type==='room'||(object.type==='hallway'&&!Array.isArray(object.points))){
+      return {...common,shape:'rectangle',gridPosition:{column:object.x/GRID,row:object.y/GRID},
+        dimensions:{widthCells:object.w/GRID,heightCells:object.h/GRID}};
+    }
+    if(object.type==='hallway'){
+      return {...common,shape:'path',widthCells:1,gridPath:object.points.map(p=>({column:p[0]/GRID,row:p[1]/GRID}))};
+    }
+    if(object.type==='door'){
+      return {...common,gridPosition:{column:object.x/GRID,row:object.y/GRID},orientation:object.orientation,
+        doorType:object.doorType,connectionId:object.connectionId};
+    }
+    return {...common,gridPosition:{column:object.x/GRID,row:object.y/GRID},markerType:object.markerType,
+      markerMeaning:markerCatalog[object.markerType]?.label||object.markerType,targetFloorId:object.targetFloorId};
+  }
 
-  document.getElementById('copyBtn').onclick=async()=>{
-    const payload={format:'Descendence Dungeon Draft v2',gridSize:GRID,dungeon:state.objects};
-    const txt=JSON.stringify(payload,null,2);
-    try{await navigator.clipboard.writeText(txt);flash('Claude JSON copied')}catch{prompt('Copy this JSON:',txt)}
-  };
-  document.getElementById('downloadBtn').onclick=()=>{
-    const blob=new Blob([JSON.stringify({format:'Descendence Dungeon Draft v2',gridSize:GRID,dungeon:state.objects,nextId:state.nextId},null,2)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='descendence-dungeon.json';a.click();URL.revokeObjectURL(a.href);flash('Dungeon downloaded')
-  };
-  document.getElementById('importBtn').onclick=()=>document.getElementById('fileInput').click();
-  document.getElementById('fileInput').onchange=async e=>{
-    const f=e.target.files[0];if(!f)return;
+  function exportConnection(connection){
+    const from=getObject(connection.fromObjectId),to=getObject(connection.toObjectId);
+    return {
+      id:connection.id,type:connection.type,floorId:connection.floorId,
+      from:{objectId:connection.fromObjectId,objectType:from?.type||'missing',label:from?.label||''},
+      to:{objectId:connection.toObjectId,objectType:to?.type||'missing',label:to?.label||''},
+      gridPosition:{column:connection.position.x/GRID,row:connection.position.y/GRID},
+      orientation:connection.orientation,doorObjectId:connection.doorObjectId,status:connection.status,
+      issue:connection.status==='invalid'?connection.reason||'Connection geometry is invalid':null
+    };
+  }
+
+  function buildExportPayload(){
+    const exportedObjects=state.objects.map(exportObject);
+    const exportedConnections=state.connections.map(exportConnection);
+    const floors=state.floors.map(floor=>({
+      ...floor,
+      objectIds:state.objects.filter(o=>o.floorId===floor.id).map(o=>o.id),
+      connectionIds:state.connections.filter(c=>c.floorId===floor.id).map(c=>c.id)
+    }));
+    const counts=exportedObjects.reduce((result,object)=>{
+      result[object.type]=(result[object.type]||0)+1;return result;
+    },{});
+    return {
+      format:'Descendence Dungeon Draft',schemaVersion:3,
+      grid:{coordinateUnit:'grid-cell',cellSize:GRID,origin:'top-left',axes:{column:'east',row:'south'}},
+      dungeon:{title:state.meta.title,activeFloorId:state.activeFloorId,floors,objects:exportedObjects,connections:exportedConnections},
+      summary:{objectCounts:counts,connectionCount:exportedConnections.length,
+        invalidConnectionIds:exportedConnections.filter(c=>c.status==='invalid').map(c=>c.id)}
+    };
+  }
+
+  document.getElementById('copyBtn').addEventListener('click',async()=>{
+    const text=JSON.stringify(buildExportPayload(),null,2);
+    try{await navigator.clipboard.writeText(text);flash('Claude JSON copied')}catch{prompt('Copy this JSON:',text)}
+  });
+  document.getElementById('downloadBtn').addEventListener('click',()=>{
+    const blob=new Blob([JSON.stringify(buildExportPayload(),null,2)],{type:'application/json'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download='descendence-dungeon.json';
+    link.click();
+    setTimeout(()=>URL.revokeObjectURL(link.href),0);
+    flash('Dungeon downloaded');
+  });
+  document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('fileInput').click());
+  document.getElementById('fileInput').addEventListener('change',async event=>{
+    const file=event.target.files[0];
+    if(!file)return;
     try{
-      const p=JSON.parse(await f.text()),objs=Array.isArray(p.dungeon)?p.dungeon:Array.isArray(p.objects)?p.objects:null;
-      if(!objs)throw Error();saveHistory();const max=objs.reduce((m,o)=>Math.max(m,Number(o.id)||0),0);
-      state={objects:objs,nextId:p.nextId||max+1};selectedId=null;render();closeSheet();flash('Dungeon imported')
-    }catch{alert('Could not import that JSON file.')}e.target.value='';
-  };
-  document.getElementById('clearBtn').onclick=()=>{if(confirm('Clear the whole dungeon?')){saveHistory();state={objects:[],nextId:1};selectedId=null;render();closeSheet()}};
+      const normalized=normalizeState(JSON.parse(await file.text()));
+      if(!normalized.state.objects.length&&!confirm('This file contains an empty dungeon. Import it?'))throw new Error('cancelled');
+      saveHistory();
+      state=normalized.state;
+      selectedId=null;
+      validateAllConnections();
+      render();
+      forceCloseSheet();
+      fitDungeon();
+      flash('Dungeon imported');
+    }catch(error){if(error.message!=='cancelled')alert('Could not import that JSON file.')}
+    event.target.value='';
+  });
+  document.getElementById('clearBtn').addEventListener('click',()=>{
+    if(!confirm('Clear the whole dungeon?'))return;
+    saveHistory();
+    state=createEmptyState();
+    selectedId=null;
+    render();
+    forceCloseSheet();
+    fitDungeon();
+  });
 
-  load();render();setTool('select');
-  requestAnimationFrame(()=>{workspace.scrollLeft=180;workspace.scrollTop=100});
+  window.addEventListener('resize',updateViewport);
+  if('ResizeObserver'in window)new ResizeObserver(updateViewport).observe(workspace);
+
+  load();
+  validateAllConnections();
+  buildMarkerPicker();
+  render();
+  updateViewport();
+  setTool('select');
+
+  if(new URLSearchParams(location.search).has('test')){
+    window.__DESCENDENCE_TEST__={
+      getState:()=>deepClone(state),
+      getViewport:()=>({...viewport}),
+      normalizeState:raw=>deepClone(normalizeState(raw).state),
+      setState:raw=>{state=normalizeState(raw).state;selectedId=null;validateAllConnections();render();fitDungeon()},
+      detectConnection:(firstId,secondId)=>deepClone(detectConnectionBetween(getObject(firstId),getObject(secondId))),
+      export:()=>deepClone(buildExportPayload()),
+      fit:fitDungeon
+    };
+  }
 })();
 </script>
 </body>
