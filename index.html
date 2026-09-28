@@ -13,8 +13,9 @@
   *{box-sizing:border-box}
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
     font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-  button,input,textarea{font:inherit}
+  button,input,textarea,select{font:inherit}
   button{color:var(--ink);touch-action:manipulation}
+  [hidden]{display:none!important}
   #app{height:100dvh;display:grid;grid-template-rows:auto 1fr auto}
   header{
     display:flex;align-items:center;gap:8px;padding:10px 12px;
@@ -32,6 +33,16 @@
   #zoomControls button{min-width:36px;height:36px;border:0;background:transparent;border-radius:7px;font-weight:700;padding:0 8px}
   #zoomControls button:active{background:#e9e3d8}
   #zoomLevel{min-width:50px;text-align:center;font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .floating-controls{position:absolute;left:10px;bottom:10px;z-index:3;display:flex;align-items:center;gap:5px;
+    max-width:calc(100% - 210px);padding:5px;background:rgba(251,248,241,.95);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 3px 14px rgba(0,0,0,.12);backdrop-filter:blur(8px)}
+  .floating-controls .control-label{font-size:10px;color:var(--muted);padding:0 3px;white-space:nowrap}
+  .segmented{display:flex;gap:2px;background:#ebe6dc;border-radius:7px;padding:2px}
+  .segmented button,.floating-controls>.compact-action{height:32px;border:0;background:transparent;border-radius:6px;padding:0 9px;
+    font-size:11px;font-weight:700;white-space:nowrap}
+  .segmented button.active{background:white;color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.14)}
+  .floating-controls>.compact-action{background:var(--ink);color:white}
+  #tunnelWidthModes{padding-left:5px;border-left:1px solid var(--line)}
   #toolbar{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:8px 8px max(8px,env(safe-area-inset-bottom));
     background:var(--bar);border-top:1px solid var(--line);z-index:4}
   .tool{min-width:0;border:1px solid var(--line);background:white;color:var(--ink);border-radius:9px;
@@ -53,6 +64,9 @@
   #objectKind{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
   #connectionWarning{font-size:12px;line-height:1.4;color:var(--danger);background:#f8e9e5;border:1px solid #e6c4bd;
     padding:9px 10px;border-radius:8px;margin:10px 0}
+  .slider-row{display:grid;grid-template-columns:1fr 52px;align-items:center;gap:10px}
+  .slider-row input[type="range"]{padding:0;border:0;background:transparent;accent-color:var(--accent)}
+  .slider-row output{text-align:center;font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
   .marker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .marker-choice{display:flex;align-items:center;gap:9px;min-height:48px;text-align:left;border:1px solid var(--line);background:white;
     border-radius:9px;padding:8px;font-size:12px;font-weight:600}
@@ -73,6 +87,14 @@
     #sheet{left:50%;right:auto;width:min(520px,calc(100vw - 24px));transform:translate(-50%,105%);border:1px solid var(--line);border-bottom:0}
     #sheet.open{transform:translate(-50%,0)}
     .marker-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  @media (max-width:430px){
+    .floating-controls{max-width:calc(100% - 142px);overflow-x:auto;scrollbar-width:none}
+    .floating-controls::-webkit-scrollbar{display:none}
+    .floating-controls .control-label{display:none}
+    .segmented button{padding:0 8px}
+    #zoomLevel{display:none}
+    #zoomControls button{min-width:33px;padding:0 7px}
   }
 </style>
 </head>
@@ -105,6 +127,7 @@
         <g id="structures"></g>
         <g id="connections"></g>
         <g id="details"></g>
+        <g id="handles"></g>
         <g id="preview" pointer-events="none"></g>
       </svg>
     </div>
@@ -113,6 +136,26 @@
       <span id="zoomLevel">100%</span>
       <button id="zoomInBtn" aria-label="Zoom in">+</button>
       <button id="fitBtn">Fit</button>
+    </div>
+    <div id="drawModeControls" class="floating-controls" aria-label="Drawing shape controls" hidden>
+      <span class="control-label" id="drawModeLabel">Shape</span>
+      <div class="segmented" id="roomModes" hidden>
+        <button type="button" data-room-mode="rectangle">Rectangle</button>
+        <button type="button" data-room-mode="cavern">Cavern</button>
+      </div>
+      <div class="segmented" id="hallwayModes" hidden>
+        <button type="button" data-hallway-mode="block">Block</button>
+        <button type="button" data-hallway-mode="tunnel">Tunnel</button>
+      </div>
+      <div class="segmented" id="tunnelWidthModes" aria-label="Tunnel width" hidden>
+        <button type="button" data-tunnel-width="0.75" aria-label="Narrow tunnel">¾×</button>
+        <button type="button" data-tunnel-width="1.25" aria-label="Standard tunnel">1¼×</button>
+        <button type="button" data-tunnel-width="2" aria-label="Wide tunnel">2×</button>
+      </div>
+    </div>
+    <div id="shapeEditControls" class="floating-controls" aria-label="Shape editing controls" hidden>
+      <span class="control-label">Drag the highlighted points</span>
+      <button type="button" class="compact-action" id="finishShapeEditBtn">Done Editing</button>
     </div>
   </main>
 
@@ -139,9 +182,17 @@
     <input id="labelField" placeholder="Room 1, north gate, boss chamber..." />
     <label for="notesField">NOTES</label>
     <textarea id="notesField" placeholder="Notes for yourself or Claude..."></textarea>
+    <div id="tunnelWidthEditor" hidden>
+      <label for="tunnelWidthField">TUNNEL WIDTH</label>
+      <div class="slider-row">
+        <input id="tunnelWidthField" type="range" min="0.5" max="3" step="0.25" value="1.25" />
+        <output id="tunnelWidthValue" for="tunnelWidthField">1.25×</output>
+      </div>
+    </div>
     <p class="hint">To move: close this panel, select the object, then drag it. On touch, hold briefly before dragging.</p>
     <div class="row">
       <button id="rotateBtn">Rotate Door</button>
+      <button id="editShapeBtn" hidden>Edit Shape</button>
       <button class="danger" id="deleteBtn">Delete</button>
     </div>
   </div>
@@ -182,6 +233,7 @@
   'use strict';
 
   const GRID=24;
+  const STORAGE_V4='descendenceDungeonDraftV4';
   const STORAGE_V3='descendenceDungeonDraftV3';
   const STORAGE_V2='descendenceDungeonDraftV2';
   const MIN_ZOOM=.25;
@@ -208,6 +260,7 @@
   const structuresLayer=document.getElementById('structures');
   const connectionsLayer=document.getElementById('connections');
   const detailsLayer=document.getElementById('details');
+  const handlesLayer=document.getElementById('handles');
   const previewLayer=document.getElementById('preview');
   const workspace=document.getElementById('workspace');
   const status=document.getElementById('status');
@@ -222,6 +275,15 @@
   const objectKind=document.getElementById('objectKind');
   const connectionWarning=document.getElementById('connectionWarning');
   const rotateBtn=document.getElementById('rotateBtn');
+  const editShapeBtn=document.getElementById('editShapeBtn');
+  const drawModeControls=document.getElementById('drawModeControls');
+  const shapeEditControls=document.getElementById('shapeEditControls');
+  const roomModes=document.getElementById('roomModes');
+  const hallwayModes=document.getElementById('hallwayModes');
+  const tunnelWidthModes=document.getElementById('tunnelWidthModes');
+  const tunnelWidthEditor=document.getElementById('tunnelWidthEditor');
+  const tunnelWidthField=document.getElementById('tunnelWidthField');
+  const tunnelWidthValue=document.getElementById('tunnelWidthValue');
   const toast=document.getElementById('toast');
   const zoomLevel=document.getElementById('zoomLevel');
 
@@ -231,6 +293,10 @@
   let selectedId=null;
   let activeMarkerType='monster';
   let doorOrientation='horizontal';
+  let roomDrawMode='rectangle';
+  let hallwayDrawMode='block';
+  let activeTunnelWidth=1.25;
+  let editingShapeId=null;
   let history=[];
   let gesture=null;
   let pointers=new Map();
@@ -243,7 +309,7 @@
 
   function createEmptyState(){
     return {
-      schemaVersion:3,
+      schemaVersion:4,
       meta:{title:'Untitled Dungeon'},
       floors:[{id:'ground',name:'Ground',order:0}],
       activeFloorId:'ground',
@@ -259,7 +325,28 @@
   const selected=()=>getObject(selectedId);
   const activeFloorObjects=()=>state.objects.filter(o=>o.floorId===state.activeFloorId);
   const isStructural=o=>o&&(o.type==='room'||o.type==='hallway');
+  const isPathHallway=o=>o?.type==='hallway'&&Array.isArray(o.points);
+  const isOutlineRoom=o=>o?.type==='room'&&Array.isArray(o.points);
+  const isEditableShape=o=>isPathHallway(o)||isOutlineRoom(o);
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const snapHalf=n=>Math.round(n/(GRID/2))*(GRID/2);
+  const toPoint=point=>Array.isArray(point)?{x:point[0],y:point[1]}:{x:point.x,y:point.y};
+  const toArray=point=>Array.isArray(point)?[point[0],point[1]]:[point.x,point.y];
+
+  function normalizeAngle(value){
+    const angle=normalizeNumber(value,0)%180;
+    return angle<0?angle+180:angle;
+  }
+
+  function orientationFromAngle(angle){
+    const normalized=normalizeAngle(angle);
+    return normalized>=45&&normalized<135?'vertical':'horizontal';
+  }
+
+  function angleDifference(first,second){
+    const difference=Math.abs(normalizeAngle(first)-normalizeAngle(second));
+    return Math.min(difference,180-difference);
+  }
 
   function svgEl(tag,attrs={}){
     const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
@@ -279,7 +366,7 @@
   function scheduleAutosave(){
     clearTimeout(autosaveTimer);
     autosaveTimer=setTimeout(()=>{
-      try{localStorage.setItem(STORAGE_V3,JSON.stringify({...state,viewport}))}catch{}
+      try{localStorage.setItem(STORAGE_V4,JSON.stringify({...state,viewport}))}catch{}
     },120);
   }
 
@@ -306,6 +393,25 @@
     return normalizeNumber(raw[axis]);
   }
 
+  function normalizedPointList(raw){
+    const geometry=raw.geometry&&typeof raw.geometry==='object'?raw.geometry:null;
+    if(Array.isArray(raw.points))return raw.points.map(point=>{
+      const value=toPoint(point);
+      return [normalizeNumber(value.x),normalizeNumber(value.y)];
+    });
+    const gridPoints=Array.isArray(geometry?.points)?geometry.points:
+      Array.isArray(geometry?.gridPath)?geometry.gridPath:
+      Array.isArray(raw.gridPath)?raw.gridPath:
+      Array.isArray(raw.gridOutline)?raw.gridOutline:null;
+    if(!gridPoints)return null;
+    return gridPoints.map(point=>{
+      const value=toPoint(point);
+      const column=point.column??value.x;
+      const row=point.row??value.y;
+      return [normalizeNumber(column)*GRID,normalizeNumber(row)*GRID];
+    });
+  }
+
   function normalizeObject(raw,fallbackId){
     if(!raw||typeof raw!=='object')return null;
     let type=raw.type==='corridor'?'hallway':raw.type;
@@ -318,22 +424,36 @@
       notes:typeof raw.notes==='string'?raw.notes:''
     };
     if(type==='room'||type==='hallway'){
-      const rawPath=Array.isArray(raw.points)?raw.points:Array.isArray(raw.gridPath)?raw.gridPath.map(p=>[
-        normalizeNumber(p.column??p.x)*GRID,normalizeNumber(p.row??p.y)*GRID
-      ]):null;
+      const geometry=raw.geometry&&typeof raw.geometry==='object'?raw.geometry:{};
+      const rawPath=normalizedPointList(raw);
+      const geometryKind=geometry.kind||raw.shape;
       if(type==='hallway'&&rawPath&&rawPath.length>=2){
-        return {...common,shape:'path',points:rawPath.map(p=>[normalizeNumber(p[0]),normalizeNumber(p[1])])};
+        const smoothing=geometry.smoothing||raw.smoothing;
+        const curved=smoothing==='curve'||smoothing==='catmull-rom'||raw.pathStyle==='curved'||raw.subtype==='mine-tunnel'||raw.subtype==='natural-tunnel';
+        return {...common,shape:'path',subtype:raw.subtype||'passage',points:rawPath,
+          pathStyle:curved?'curved':'constructed',smoothing:curved?'curve':'none',
+          widthCells:clamp(normalizeNumber(geometry.widthCells??raw.widthCells,curved?1.25:.75),.5,4)};
       }
-      let x=gridCoordinate(raw,'x'),y=gridCoordinate(raw,'y');
-      let w=raw.dimensions?normalizeNumber(raw.dimensions.widthCells)*GRID:normalizeNumber(raw.w??raw.width,GRID);
-      let h=raw.dimensions?normalizeNumber(raw.dimensions.heightCells)*GRID:normalizeNumber(raw.h??raw.height,GRID);
+      if(type==='room'&&rawPath&&rawPath.length>=3&&(geometryKind==='outline'||raw.subtype==='cavern'||raw.shape==='outline')){
+        return {...common,shape:'outline',subtype:raw.subtype||'cavern',points:rawPath,
+          smoothing:geometry.smoothing||raw.smoothing||'curve'};
+      }
+      const origin=geometry.origin||geometry.gridPosition;
+      const size=geometry.size||geometry.dimensions;
+      let x=origin?normalizeNumber(origin.column??origin.x)*GRID:gridCoordinate(raw,'x');
+      let y=origin?normalizeNumber(origin.row??origin.y)*GRID:gridCoordinate(raw,'y');
+      let w=size?normalizeNumber(size.widthCells??size.width,1)*GRID:
+        raw.dimensions?normalizeNumber(raw.dimensions.widthCells)*GRID:normalizeNumber(raw.w??raw.width,GRID);
+      let h=size?normalizeNumber(size.heightCells??size.height,1)*GRID:
+        raw.dimensions?normalizeNumber(raw.dimensions.heightCells)*GRID:normalizeNumber(raw.h??raw.height,GRID);
       if(w<0){x+=w;w=Math.abs(w)}
       if(h<0){y+=h;h=Math.abs(h)}
-      return {...common,shape:'rect',x,y,w:Math.max(GRID,w),h:Math.max(GRID,h)};
+      return {...common,shape:'rect',subtype:raw.subtype||null,x,y,w:Math.max(GRID,w),h:Math.max(GRID,h)};
     }
     if(type==='door'){
-      return {...common,x:gridCoordinate(raw,'x'),y:gridCoordinate(raw,'y'),
-        orientation:raw.orientation==='vertical'?'vertical':'horizontal',
+      const angle=normalizeAngle(raw.angleDegrees??raw.angle??(raw.orientation==='vertical'?90:0));
+      return {...common,x:gridCoordinate(raw,'x'),y:gridCoordinate(raw,'y'),angle,
+        orientation:orientationFromAngle(angle),
         doorType:raw.doorType||raw.kind||'door',connectionId:raw.connectionId??null,
         generatedByConnection:Boolean(raw.generatedByConnection)};
     }
@@ -348,6 +468,7 @@
     const x=Number.isFinite(Number(gp.column))?Number(gp.column)*GRID:normalizeNumber(gp.x);
     const y=Number.isFinite(Number(gp.row))?Number(gp.row)*GRID:normalizeNumber(gp.y);
     const type=['open-passage','door','secret-door'].includes(raw.type)?raw.type:'open-passage';
+    const angle=normalizeAngle(raw.angleDegrees??raw.angle??(raw.orientation==='vertical'?90:0));
     return {
       id:raw.id??fallbackId,
       type,
@@ -355,7 +476,7 @@
       fromObjectId:raw.fromObjectId??raw.from?.objectId,
       toObjectId:raw.toObjectId??raw.to?.objectId,
       position:{x,y},
-      orientation:raw.orientation==='vertical'?'vertical':'horizontal',
+      angle,orientation:orientationFromAngle(angle),contact:raw.contact||'threshold',
       doorObjectId:raw.doorObjectId??null,
       status:raw.status==='invalid'?'invalid':'valid',
       reason:typeof raw.reason==='string'?raw.reason:''
@@ -384,7 +505,7 @@
     const nextConnection=Math.max(0,...numericConnectionIds)+1;
     const activeFloorId=container.activeFloorId||input.activeFloorId||floors[0].id;
     const normalized={
-      schemaVersion:3,
+      schemaVersion:4,
       meta:{title:container.meta?.title||input.meta?.title||container.title||'Untitled Dungeon'},
       floors,
       activeFloorId:floors.some(f=>f.id===activeFloorId)?activeFloorId:floors[0].id,
@@ -401,7 +522,7 @@
   }
 
   function load(){
-    for(const key of [STORAGE_V3,STORAGE_V2]){
+    for(const key of [STORAGE_V4,STORAGE_V3,STORAGE_V2]){
       try{
         const raw=localStorage.getItem(key);
         if(!raw)continue;
@@ -416,6 +537,8 @@
   function objectDisplayName(object){
     if(!object)return 'Object';
     if(object.label.trim())return object.label.trim();
+    if(isPathHallway(object)&&object.pathStyle==='curved')return `Tunnel ${object.id}`;
+    if(isOutlineRoom(object))return `Cavern ${object.id}`;
     if(object.type==='hallway')return `Hallway ${object.id}`;
     if(object.type==='room')return `Room ${object.id}`;
     if(object.type==='door')return `${object.doorType==='secret-door'?'Secret Door':'Door'} ${object.id}`;
@@ -424,6 +547,8 @@
 
   function typeDisplayName(object){
     if(!object)return 'Object';
+    if(isPathHallway(object)&&object.pathStyle==='curved')return 'Curved Tunnel';
+    if(isOutlineRoom(object))return 'Cavern';
     if(object.type==='hallway')return 'Hallway';
     if(object.type==='room')return 'Room';
     if(object.type==='door')return object.doorType==='secret-door'?'Secret Door':'Door';
@@ -450,6 +575,13 @@
     labelField.value=object.label||'';
     notesField.value=object.notes||'';
     rotateBtn.hidden=object.type!=='door';
+    editShapeBtn.hidden=!isEditableShape(object);
+    editShapeBtn.textContent=isOutlineRoom(object)?'Edit Outline':'Edit Path';
+    tunnelWidthEditor.hidden=!isPathHallway(object);
+    if(isPathHallway(object)){
+      tunnelWidthField.value=String(object.widthCells||.75);
+      tunnelWidthValue.textContent=`${Number(tunnelWidthField.value).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')}×`;
+    }
     const related=state.connections.filter(c=>sameId(c.fromObjectId,object.id)||sameId(c.toObjectId,object.id)||sameId(c.doorObjectId,object.id));
     const invalid=related.filter(c=>c.status==='invalid');
     connectionWarning.hidden=!invalid.length;
@@ -487,21 +619,44 @@
     });
   }
 
-  function setTool(nextTool){
-    clearLongPress();
-    gesture=null;
-    previewLayer.innerHTML='';
-    tool=nextTool;
-    document.querySelectorAll('[data-tool]').forEach(button=>button.classList.toggle('active',button.dataset.tool===tool));
+  function updateDrawingControls(){
+    const editing=editingShapeId!==null;
+    const drawing=tool==='room'||tool==='hallway';
+    drawModeControls.hidden=editing||!drawing;
+    shapeEditControls.hidden=!editing;
+    roomModes.hidden=tool!=='room';
+    hallwayModes.hidden=tool!=='hallway';
+    tunnelWidthModes.hidden=tool!=='hallway'||hallwayDrawMode!=='tunnel';
+    document.querySelectorAll('[data-room-mode]').forEach(button=>button.classList.toggle('active',button.dataset.roomMode===roomDrawMode));
+    document.querySelectorAll('[data-hallway-mode]').forEach(button=>button.classList.toggle('active',button.dataset.hallwayMode===hallwayDrawMode));
+    document.querySelectorAll('[data-tunnel-width]').forEach(button=>button.classList.toggle('active',Number(button.dataset.tunnelWidth)===activeTunnelWidth));
+  }
+
+  function updateToolStatus(){
+    if(editingShapeId!==null){status.textContent='Drag a highlighted point to reshape. Tap Done Editing when finished.';return}
+    const roomMessage=roomDrawMode==='cavern'?'Trace a cavern outline. Release to close it.':'Drag to make a room. Use two fingers to zoom.';
+    const hallwayMessage=hallwayDrawMode==='tunnel'?'Draw a winding tunnel. Release to finish it.':'Drag to make a hallway. Use two fingers to zoom.';
     const messages={
       select:'Drag empty space to pan. Tap an object to select it.',
-      room:'Drag to make a room. Use two fingers to zoom.',
-      hallway:'Drag to make a hallway. Use two fingers to zoom.',
+      room:roomMessage,
+      hallway:hallwayMessage,
       door:`Tap to place a ${doorOrientation} door.`,
       marker:`Tap to place: ${markerCatalog[activeMarkerType].label}.`,
       erase:'Tap an object to erase it.'
     };
     status.textContent=messages[tool]||'';
+  }
+
+  function setTool(nextTool,preserveEditing=false){
+    clearLongPress();
+    gesture=null;
+    previewLayer.innerHTML='';
+    if(!preserveEditing)editingShapeId=null;
+    tool=nextTool;
+    document.querySelectorAll('[data-tool]').forEach(button=>button.classList.toggle('active',button.dataset.tool===tool));
+    updateDrawingControls();
+    updateToolStatus();
+    renderEditHandles();
   }
 
   function updateViewport(){
@@ -514,6 +669,7 @@
     canvasBg.setAttribute('width',width/viewport.zoom+margin*2);
     canvasBg.setAttribute('height',height/viewport.zoom+margin*2);
     zoomLevel.textContent=`${Math.round(viewport.zoom*100)}%`;
+    renderEditHandles();
   }
 
   function worldPoint(clientX,clientY,snapToGrid=true){
@@ -540,6 +696,276 @@
   function zoomFromCenter(multiplier){
     const rect=board.getBoundingClientRect();
     setZoomAt(viewport.zoom*multiplier,rect.left+rect.width/2,rect.top+rect.height/2);
+  }
+
+  function curvePathData(points,closed=false){
+    const values=points.map(toPoint);
+    if(!values.length)return '';
+    if(values.length<3){
+      const lines=values.slice(1).map(point=>`L ${point.x} ${point.y}`).join(' ');
+      return `M ${values[0].x} ${values[0].y} ${lines}${closed?' Z':''}`;
+    }
+    let data=`M ${values[0].x} ${values[0].y}`;
+    const count=closed?values.length:values.length-1;
+    for(let index=0;index<count;index++){
+      const p0=closed?values[(index-1+values.length)%values.length]:values[Math.max(0,index-1)];
+      const p1=values[index];
+      const p2=closed?values[(index+1)%values.length]:values[index+1];
+      const p3=closed?values[(index+2)%values.length]:values[Math.min(values.length-1,index+2)];
+      const c1={x:p1.x+(p2.x-p0.x)/6,y:p1.y+(p2.y-p0.y)/6};
+      const c2={x:p2.x-(p3.x-p1.x)/6,y:p2.y-(p3.y-p1.y)/6};
+      data+=` C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p2.x} ${p2.y}`;
+    }
+    return `${data}${closed?' Z':''}`;
+  }
+
+  function catmullRomPoint(p0,p1,p2,p3,t){
+    const t2=t*t,t3=t2*t;
+    return {
+      x:.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+      y:.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
+    };
+  }
+
+  function sampledObjectPoints(object,steps=8){
+    const values=(object.points||[]).map(toPoint);
+    const curved=object.smoothing==='curve'||object.smoothing==='catmull-rom'||object.pathStyle==='curved';
+    const closed=isOutlineRoom(object);
+    if(!curved||values.length<3)return values;
+    const sampled=[];
+    const count=closed?values.length:values.length-1;
+    for(let index=0;index<count;index++){
+      const p0=closed?values[(index-1+values.length)%values.length]:values[Math.max(0,index-1)];
+      const p1=values[index];
+      const p2=closed?values[(index+1)%values.length]:values[index+1];
+      const p3=closed?values[(index+2)%values.length]:values[Math.min(values.length-1,index+2)];
+      for(let step=0;step<steps;step++)sampled.push(catmullRomPoint(p0,p1,p2,p3,step/steps));
+    }
+    if(!closed)sampled.push(values[values.length-1]);
+    return sampled;
+  }
+
+  function pointToSegmentDistance(point,start,end){
+    const dx=end.x-start.x,dy=end.y-start.y;
+    if(dx===0&&dy===0)return distance(point,start);
+    const t=clamp(((point.x-start.x)*dx+(point.y-start.y)*dy)/(dx*dx+dy*dy),0,1);
+    return distance(point,{x:start.x+t*dx,y:start.y+t*dy});
+  }
+
+  function simplifyPoints(points,tolerance){
+    if(points.length<=2)return points.slice();
+    let greatest=0,index=0;
+    for(let cursor=1;cursor<points.length-1;cursor++){
+      const amount=pointToSegmentDistance(points[cursor],points[0],points[points.length-1]);
+      if(amount>greatest){greatest=amount;index=cursor}
+    }
+    if(greatest<=tolerance)return [points[0],points[points.length-1]];
+    const first=simplifyPoints(points.slice(0,index+1),tolerance);
+    const second=simplifyPoints(points.slice(index),tolerance);
+    return first.slice(0,-1).concat(second);
+  }
+
+  function cleanDrawnPoints(points,closed=false){
+    let values=points.map(toPoint);
+    if(closed&&values.length>2&&distance(values[0],values[values.length-1])<GRID)values=values.slice(0,-1);
+    values=simplifyPoints(values,Math.max(4,6/viewport.zoom));
+    values=values.map(point=>({x:snapHalf(point.x),y:snapHalf(point.y)})).filter((point,index,array)=>
+      !index||distance(point,array[index-1])>=GRID/3);
+    const maximum=48;
+    if(values.length>maximum){
+      const stride=(values.length-1)/(maximum-1);
+      values=Array.from({length:maximum},(_,index)=>values[Math.round(index*stride)]);
+    }
+    if(closed&&values.length>2&&distance(values[0],values[values.length-1])<GRID/2)values.pop();
+    return values.map(toArray);
+  }
+
+  function polylineLength(points,closed=false){
+    const values=points.map(toPoint);
+    let total=0;
+    for(let index=1;index<values.length;index++)total+=distance(values[index-1],values[index]);
+    if(closed&&values.length>2)total+=distance(values[values.length-1],values[0]);
+    return total;
+  }
+
+  function polygonArea(points){
+    const values=points.map(toPoint);
+    return Math.abs(values.reduce((sum,point,index)=>{
+      const next=values[(index+1)%values.length];
+      return sum+point.x*next.y-next.x*point.y;
+    },0)/2);
+  }
+
+  function segmentsFor(points,closed=false){
+    const values=points.map(toPoint),segments=[];
+    const count=closed?values.length:Math.max(0,values.length-1);
+    for(let index=0;index<count;index++){
+      const start=values[index],end=values[(index+1)%values.length];
+      if(distance(start,end)<.01)continue;
+      segments.push({start,end,angle:normalizeAngle(Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI)});
+    }
+    return segments;
+  }
+
+  function nearestOnPolyline(point,points,closed=false){
+    let best=null;
+    segmentsFor(points,closed).forEach((segment,index)=>{
+      const dx=segment.end.x-segment.start.x,dy=segment.end.y-segment.start.y;
+      const t=clamp(((point.x-segment.start.x)*dx+(point.y-segment.start.y)*dy)/(dx*dx+dy*dy),0,1);
+      const position={x:segment.start.x+t*dx,y:segment.start.y+t*dy};
+      const amount=distance(point,position);
+      if(!best||amount<best.distance)best={position,distance:amount,tangentAngle:segment.angle,segmentIndex:index,t};
+    });
+    return best;
+  }
+
+  function pointInPolygon(point,points){
+    const values=points.map(toPoint);
+    let inside=false;
+    for(let first=0,second=values.length-1;first<values.length;second=first++){
+      const a=values[first],b=values[second];
+      const crossing=(a.y>point.y)!==(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y||1e-9)+a.x;
+      if(crossing)inside=!inside;
+    }
+    return inside;
+  }
+
+  function areaBoundary(room){
+    if(isOutlineRoom(room))return sampledObjectPoints(room);
+    return [{x:room.x,y:room.y},{x:room.x+room.w,y:room.y},{x:room.x+room.w,y:room.y+room.h},{x:room.x,y:room.y+room.h}];
+  }
+
+  function pointInArea(point,room){
+    if(isOutlineRoom(room))return pointInPolygon(point,areaBoundary(room));
+    return point.x>=room.x-EPS&&point.x<=room.x+room.w+EPS&&point.y>=room.y-EPS&&point.y<=room.y+room.h+EPS;
+  }
+
+  function nearestAreaBoundary(point,room){return nearestOnPolyline(point,areaBoundary(room),true)}
+
+  function hallwayWidth(hallway){
+    if(isPathHallway(hallway))return clamp(normalizeNumber(hallway.widthCells,.75),.5,4)*GRID;
+    return hallway.w>=hallway.h?hallway.h:hallway.w;
+  }
+
+  function hallwayCenterlines(hallway){
+    if(isPathHallway(hallway))return [{points:sampledObjectPoints(hallway),width:hallwayWidth(hallway)}];
+    const center={x:hallway.x+hallway.w/2,y:hallway.y+hallway.h/2};
+    if(Math.max(hallway.w,hallway.h)/Math.max(GRID,Math.min(hallway.w,hallway.h))<1.35){
+      return [
+        {points:[{x:hallway.x,y:center.y},{x:hallway.x+hallway.w,y:center.y}],width:hallway.h},
+        {points:[{x:center.x,y:hallway.y},{x:center.x,y:hallway.y+hallway.h}],width:hallway.w}
+      ];
+    }
+    return hallway.w>=hallway.h?
+      [{points:[{x:hallway.x,y:center.y},{x:hallway.x+hallway.w,y:center.y}],width:hallway.h}]:
+      [{points:[{x:center.x,y:hallway.y},{x:center.x,y:hallway.y+hallway.h}],width:hallway.w}];
+  }
+
+  function hallwayPorts(hallway){
+    const ports=[];
+    hallwayCenterlines(hallway).forEach(line=>{
+      const points=line.points;
+      if(points.length<2)return;
+      const first=points[0],firstNext=points[1],last=points[points.length-1],lastPrevious=points[points.length-2];
+      const firstLength=Math.max(.001,distance(first,firstNext));
+      const lastLength=Math.max(.001,distance(last,lastPrevious));
+      ports.push({position:{...first},inward:{x:(firstNext.x-first.x)/firstLength,y:(firstNext.y-first.y)/firstLength},width:line.width});
+      ports.push({position:{...last},inward:{x:(lastPrevious.x-last.x)/lastLength,y:(lastPrevious.y-last.y)/lastLength},width:line.width});
+    });
+    return ports.filter((port,index,array)=>array.findIndex(other=>distance(port.position,other.position)<EPS)===index);
+  }
+
+  function nearestOnHallway(point,hallway){
+    let best=null;
+    hallwayCenterlines(hallway).forEach(line=>{
+      const nearest=nearestOnPolyline(point,line.points);
+      if(nearest&&(!best||nearest.distance<best.distance))best={...nearest,width:line.width};
+    });
+    return best;
+  }
+
+  function segmentIntersection(first,second){
+    const x1=first.start.x,y1=first.start.y,x2=first.end.x,y2=first.end.y;
+    const x3=second.start.x,y3=second.start.y,x4=second.end.x,y4=second.end.y;
+    const denominator=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+    if(Math.abs(denominator)<1e-6)return null;
+    const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/denominator;
+    const u=-((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/denominator;
+    if(t<-.001||t>1.001||u<-.001||u>1.001)return null;
+    return {x:x1+t*(x2-x1),y:y1+t*(y2-y1)};
+  }
+
+  function detectHallwayArea(hallway,room){
+    const ports=hallwayPorts(hallway);
+    if(ports.length&&ports.every(port=>pointInArea(port.position,room)))return [];
+    return ports.map(port=>{
+      const nearest=nearestAreaBoundary(port.position,room);
+      if(!nearest)return null;
+      const inside=pointInArea(port.position,room);
+      const threshold=inside?Math.max(GRID*1.5,port.width*1.35):port.width/2+GRID*.45;
+      if(nearest.distance>threshold)return null;
+      const angle=normalizeAngle(nearest.tangentAngle);
+      return {position:{...nearest.position},angle,orientation:orientationFromAngle(angle),score:140-nearest.distance,
+        contact:'threshold'};
+    }).filter(Boolean);
+  }
+
+  function hasDeepParallelOverlap(first,second){
+    const secondLines=hallwayCenterlines(second);
+    return hallwayCenterlines(first).some(firstLine=>{
+      let overlap=0;
+      segmentsFor(firstLine.points).forEach(segment=>{
+        const midpoint={x:(segment.start.x+segment.end.x)/2,y:(segment.start.y+segment.end.y)/2};
+        let nearest=null;
+        secondLines.forEach(line=>{
+          const candidate=nearestOnPolyline(midpoint,line.points);
+          if(candidate&&(!nearest||candidate.distance<nearest.distance))nearest={...candidate,width:line.width};
+        });
+        if(nearest&&nearest.distance<Math.min(firstLine.width,nearest.width)*.3&&angleDifference(segment.angle,nearest.tangentAngle)<12){
+          overlap+=distance(segment.start,segment.end);
+        }
+      });
+      return overlap>Math.max(GRID*1.5,Math.min(firstLine.width,hallwayWidth(second))*1.25);
+    });
+  }
+
+  function detectHallwayPair(first,second){
+    if(hasDeepParallelOverlap(first,second)||hasDeepParallelOverlap(second,first))return [];
+    const candidates=[];
+    const examine=(source,target)=>{
+      const targetPorts=hallwayPorts(target);
+      hallwayPorts(source).forEach(port=>{
+        const nearest=nearestOnHallway(port.position,target);
+        if(!nearest||nearest.distance>port.width/2+nearest.width/2+GRID*.35)return;
+        const sourceAngle=normalizeAngle(Math.atan2(port.inward.y,port.inward.x)*180/Math.PI);
+        const parallel=angleDifference(sourceAngle,nearest.tangentAngle)<25;
+        const atTargetEnd=targetPorts.some(targetPort=>distance(targetPort.position,nearest.position)<=Math.max(GRID*.55,nearest.width*.65));
+        const probe={x:port.position.x+port.inward.x*Math.min(GRID,port.width),y:port.position.y+port.inward.y*Math.min(GRID,port.width)};
+        const probeNearest=nearestOnHallway(probe,target);
+        const continuesAlongTarget=probeNearest&&probeNearest.distance<=port.width/2+probeNearest.width/2+GRID*.2;
+        if(parallel&&!atTargetEnd&&continuesAlongTarget)return;
+        const position={x:(port.position.x+nearest.position.x)/2,y:(port.position.y+nearest.position.y)/2};
+        const angle=normalizeAngle(sourceAngle+90);
+        candidates.push({position,angle,orientation:orientationFromAngle(angle),
+          score:(atTargetEnd?145:115)-nearest.distance,contact:atTargetEnd?'endpoint':'junction'});
+      });
+    };
+    examine(first,second);
+    examine(second,first);
+
+    const intersections=[];
+    hallwayCenterlines(first).forEach(firstLine=>hallwayCenterlines(second).forEach(secondLine=>{
+      segmentsFor(firstLine.points).forEach(firstSegment=>segmentsFor(secondLine.points).forEach(secondSegment=>{
+        if(angleDifference(firstSegment.angle,secondSegment.angle)<25)return;
+        const point=segmentIntersection(firstSegment,secondSegment);
+        if(point&&!intersections.some(item=>distance(item.position,point)<GRID*.4)){
+          const angle=normalizeAngle(firstSegment.angle+90);
+          intersections.push({position:point,angle,orientation:orientationFromAngle(angle),score:108,contact:'crossing'});
+        }
+      }));
+    }));
+    if(intersections.length===1)candidates.push(intersections[0]);
+    return candidates;
   }
 
   function structuralRects(object){
@@ -628,12 +1054,28 @@
   function detectConnectionBetween(first,second,nearPosition=null){
     if(!isStructural(first)||!isStructural(second))return null;
     if(first.type!=='hallway'&&second.type!=='hallway')return null;
-    const candidates=[];
-    structuralRects(first).forEach(a=>structuralRects(second).forEach(b=>{
-      const candidate=candidateForRectPair(a,b);
-      if(candidate)candidates.push(candidate);
-    }));
+    const firstBounds=objectBounds(first),secondBounds=objectBounds(second),reach=GRID*1.75;
+    if(firstBounds.x2+reach<secondBounds.x1||secondBounds.x2+reach<firstBounds.x1||
+      firstBounds.y2+reach<secondBounds.y1||secondBounds.y2+reach<firstBounds.y1)return null;
+    let candidates=[];
+    const usesPointGeometry=isEditableShape(first)||isEditableShape(second);
+    if(!usesPointGeometry){
+      structuralRects(first).forEach(a=>structuralRects(second).forEach(b=>{
+        const candidate=candidateForRectPair(a,b);
+        if(candidate)candidates.push(candidate);
+      }));
+    }else if(first.type==='hallway'&&second.type==='hallway'){
+      candidates=detectHallwayPair(first,second);
+    }else{
+      const hallway=first.type==='hallway'?first:second;
+      const room=first.type==='room'?first:second;
+      candidates=detectHallwayArea(hallway,room);
+    }
     if(!candidates.length)return null;
+    candidates=candidates.map(candidate=>{
+      const angle=normalizeAngle(candidate.angle??(candidate.orientation==='vertical'?90:0));
+      return {...candidate,angle,orientation:orientationFromAngle(angle)};
+    });
     candidates.sort((a,b)=>{
       if(nearPosition)return distance(a.position,nearPosition)-distance(b.position,nearPosition)||b.score-a.score;
       return b.score-a.score;
@@ -668,20 +1110,23 @@
     const linkedDoor=getObject(connection.doorObjectId);
     if(linkedDoor&&!moveLinkedDoor){
       const closeEnough=distance({x:linkedDoor.x,y:linkedDoor.y},detected.position)<=GRID*.75;
-      const orientationMatches=linkedDoor.orientation===detected.orientation;
-      if(!closeEnough||!orientationMatches){
+      const angleMatches=angleDifference(linkedDoor.angle??(linkedDoor.orientation==='vertical'?90:0),detected.angle)<=5;
+      if(!closeEnough||!angleMatches){
         connection.status='invalid';
         connection.reason='Door moved away from its connection';
         return false;
       }
     }
     connection.position={...detected.position};
+    connection.angle=detected.angle;
     connection.orientation=detected.orientation;
+    connection.contact=detected.contact;
     connection.status='valid';
     connection.reason='';
     if(linkedDoor&&moveLinkedDoor){
       linkedDoor.x=detected.position.x;
       linkedDoor.y=detected.position.y;
+      linkedDoor.angle=detected.angle;
       linkedDoor.orientation=detected.orientation;
     }
     return true;
@@ -730,13 +1175,13 @@
       const connection={
         id:nextConnectionId(),type:choice,floorId:candidate.floorId,
         fromObjectId:candidate.fromObjectId,toObjectId:candidate.toObjectId,
-        position:{...candidate.position},orientation:candidate.orientation,
+        position:{...candidate.position},angle:candidate.angle,orientation:candidate.orientation,contact:candidate.contact,
         doorObjectId:null,status:'valid',reason:''
       };
       if(choice==='door'||choice==='secret-door'){
         const door={
           id:nextId(),type:'door',floorId:candidate.floorId,x:candidate.position.x,y:candidate.position.y,
-          orientation:candidate.orientation,doorType:choice,connectionId:connection.id,generatedByConnection:true,
+          angle:candidate.angle,orientation:candidate.orientation,doorType:choice,connectionId:connection.id,generatedByConnection:true,
           label:'',notes:''
         };
         state.objects.push(door);
@@ -758,21 +1203,30 @@
   function renderStructure(object){
     const group=svgEl('g',{'data-id':object.id,'data-object-type':object.type,style:'cursor:pointer'});
     const isSelected=sameId(object.id,selectedId);
-    if(object.type==='room'){
+    if(isOutlineRoom(object)){
+      const data=curvePathData(object.points,true);
+      group.appendChild(svgEl('path',{d:data,fill:'#f7f3e8',stroke:isSelected?'#7a5c20':'#1e1d1a',
+        'stroke-width':isSelected?5:3,'stroke-linejoin':'round'}));
+      const bounds=objectBounds(object);
+      addTextLabel(group,object,bounds.x1+10,bounds.y1+20);
+    }else if(object.type==='room'){
       group.appendChild(svgEl('rect',{x:object.x,y:object.y,width:object.w,height:object.h,fill:'#f7f3e8',
         stroke:isSelected?'#7a5c20':'#1e1d1a','stroke-width':isSelected?5:3}));
       addTextLabel(group,object,object.x+8,object.y+18);
-    }else if(Array.isArray(object.points)){
-      const points=object.points.map(point=>point.join(',')).join(' ');
-      group.appendChild(svgEl('polyline',{points,fill:'none',stroke:'transparent','stroke-width':42,
-        'stroke-linecap':'square','stroke-linejoin':'miter'}));
-      group.appendChild(svgEl('polyline',{points,fill:'none',stroke:isSelected?'#7a5c20':'#1e1d1a','stroke-width':isSelected?30:26,
-        'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
-      group.appendChild(svgEl('polyline',{points,fill:'none',stroke:'#e4d5b7','stroke-width':18,
-        'stroke-linecap':'square','stroke-linejoin':'miter','pointer-events':'none'}));
+    }else if(isPathHallway(object)){
+      const curved=object.pathStyle==='curved'||object.smoothing==='curve';
+      const data=curved?curvePathData(object.points):`M ${object.points.map(point=>point.join(' ')).join(' L ')}`;
+      const width=hallwayWidth(object);
+      const linecap=curved?'round':'square',linejoin=curved?'round':'miter';
+      group.appendChild(svgEl('path',{d:data,fill:'none',stroke:'transparent','stroke-width':Math.max(width+24,44),
+        'stroke-linecap':linecap,'stroke-linejoin':linejoin}));
+      group.appendChild(svgEl('path',{d:data,fill:'none',stroke:isSelected?'#7a5c20':'#1e1d1a','stroke-width':width+(isSelected?10:7),
+        'stroke-linecap':linecap,'stroke-linejoin':linejoin,'pointer-events':'none'}));
+      group.appendChild(svgEl('path',{d:data,fill:'none',stroke:'url(#hallwayHatch)','stroke-width':width,
+        'stroke-linecap':linecap,'stroke-linejoin':linejoin,'pointer-events':'none'}));
       if(object.label){
         const first=object.points[0];
-        addTextLabel(group,object,first[0]+8,first[1]-14);
+        addTextLabel(group,object,first[0]+10,first[1]-width/2-8);
       }
     }else{
       group.appendChild(svgEl('rect',{x:object.x,y:object.y,width:object.w,height:object.h,fill:'url(#hallwayHatch)',
@@ -782,8 +1236,14 @@
     structuresLayer.appendChild(group);
   }
 
+  function linePointsAtAngle(x,y,angle,length){
+    const radians=normalizeAngle(angle)*Math.PI/180;
+    const dx=Math.cos(radians)*length/2,dy=Math.sin(radians)*length/2;
+    return {x1:x-dx,y1:y-dy,x2:x+dx,y2:y+dy};
+  }
+
   function linePoints(x,y,orientation,length){
-    return orientation==='horizontal'?{x1:x-length/2,y1:y,x2:x+length/2,y2:y}:{x1:x,y1:y-length/2,x2:x,y2:y+length/2};
+    return linePointsAtAngle(x,y,orientation==='vertical'?90:0,length);
   }
 
   function renderConnections(){
@@ -796,10 +1256,11 @@
         mark.textContent='!';
         connectionsLayer.appendChild(mark);
       }else if(connection.type==='open-passage'){
-        const points=linePoints(x,y,connection.orientation,GRID*.8);
+        const angle=connection.angle??(connection.orientation==='vertical'?90:0);
+        const points=linePointsAtAngle(x,y,angle,GRID*.8);
         connectionsLayer.appendChild(svgEl('line',{...points,stroke:'#fffdf8','stroke-width':9,'stroke-linecap':'square','pointer-events':'none'}));
-        const cap1=connection.orientation==='horizontal'?{x1:points.x1,y1:y-4,x2:points.x1,y2:y+4}:{x1:x-4,y1:points.y1,x2:x+4,y2:points.y1};
-        const cap2=connection.orientation==='horizontal'?{x1:points.x2,y1:y-4,x2:points.x2,y2:y+4}:{x1:x-4,y1:points.y2,x2:x+4,y2:points.y2};
+        const cap1=linePointsAtAngle(points.x1,points.y1,angle+90,8);
+        const cap2=linePointsAtAngle(points.x2,points.y2,angle+90,8);
         connectionsLayer.appendChild(svgEl('line',{...cap1,stroke:'#1e1d1a','stroke-width':2,'pointer-events':'none'}));
         connectionsLayer.appendChild(svgEl('line',{...cap2,stroke:'#1e1d1a','stroke-width':2,'pointer-events':'none'}));
       }
@@ -811,7 +1272,8 @@
     const selectedDoor=sameId(object.id,selectedId);
     const connection=object.connectionId!==null?state.connections.find(c=>sameId(c.id,object.connectionId)):null;
     const invalid=connection&&connection.status==='invalid';
-    const points=linePoints(object.x,object.y,object.orientation,28);
+    const angle=object.angle??(object.orientation==='vertical'?90:0);
+    const points=linePointsAtAngle(object.x,object.y,angle,28);
     group.appendChild(svgEl('line',{...points,stroke:'transparent','stroke-width':30}));
     group.appendChild(svgEl('line',{...points,stroke:invalid?'#a33a31':selectedDoor?'#7a5c20':'#1e1d1a','stroke-width':6,
       'stroke-dasharray':object.doorType==='secret-door'?'7 4':null,'pointer-events':'none'}));
@@ -835,6 +1297,20 @@
     detailsLayer.appendChild(group);
   }
 
+  function renderEditHandles(){
+    if(!handlesLayer)return;
+    handlesLayer.innerHTML='';
+    const object=getObject(editingShapeId);
+    if(!object||!isEditableShape(object))return;
+    const radius=8/viewport.zoom,strokeWidth=2/viewport.zoom;
+    object.points.forEach((point,index)=>{
+      const endpoint=isPathHallway(object)&&(index===0||index===object.points.length-1);
+      handlesLayer.appendChild(svgEl('circle',{cx:point[0],cy:point[1],r:radius,
+        fill:endpoint?'#7a5c20':'#fffdf8',stroke:'#1e1d1a','stroke-width':strokeWidth,
+        'data-id':object.id,'data-handle-index':index,style:'cursor:grab'}));
+    });
+  }
+
   function render(){
     structuresLayer.innerHTML='';
     detailsLayer.innerHTML='';
@@ -842,6 +1318,7 @@
     renderConnections();
     activeFloorObjects().filter(o=>o.type==='door').forEach(renderDoor);
     activeFloorObjects().filter(o=>o.type==='marker').forEach(renderMarker);
+    renderEditHandles();
     scheduleAutosave();
   }
 
@@ -854,13 +1331,32 @@
       stroke:'#7a5c20','stroke-width':3,'stroke-dasharray':hallway?'4 4':'8 6'}));
   }
 
+  function previewFreehand(points,kind){
+    previewLayer.innerHTML='';
+    if(points.length<2)return;
+    const data=`M ${points.map(point=>`${point.x} ${point.y}`).join(' L ')}`;
+    if(kind==='hallway'){
+      const width=activeTunnelWidth*GRID;
+      previewLayer.appendChild(svgEl('path',{d:data,fill:'none',stroke:'#7a5c20','stroke-width':width+7,
+        'stroke-linecap':'round','stroke-linejoin':'round',opacity:.9}));
+      previewLayer.appendChild(svgEl('path',{d:data,fill:'none',stroke:'url(#hallwayHatch)','stroke-width':width,
+        'stroke-linecap':'round','stroke-linejoin':'round',opacity:.9}));
+    }else{
+      const closed=`${data} Z`;
+      previewLayer.appendChild(svgEl('path',{d:closed,fill:'rgba(122,92,32,.08)',stroke:'#7a5c20','stroke-width':3,
+        'stroke-linejoin':'round','stroke-dasharray':'8 6'}));
+    }
+  }
+
   function objectBounds(object){
-    if(object.type==='room'||(object.type==='hallway'&&!Array.isArray(object.points))){
+    if((object.type==='room'||object.type==='hallway')&&!Array.isArray(object.points)){
       return {x1:object.x,y1:object.y,x2:object.x+object.w,y2:object.y+object.h};
     }
-    if(object.type==='hallway'&&Array.isArray(object.points)){
-      const xs=object.points.map(p=>p[0]),ys=object.points.map(p=>p[1]);
-      return {x1:Math.min(...xs)-GRID/2,y1:Math.min(...ys)-GRID/2,x2:Math.max(...xs)+GRID/2,y2:Math.max(...ys)+GRID/2};
+    if(isEditableShape(object)){
+      const points=sampledObjectPoints(object);
+      const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+      const padding=isPathHallway(object)?hallwayWidth(object)/2:3;
+      return {x1:Math.min(...xs)-padding,y1:Math.min(...ys)-padding,x2:Math.max(...xs)+padding,y2:Math.max(...ys)+padding};
     }
     return {x1:object.x-20,y1:object.y-20,x2:object.x+20,y2:object.y+20};
   }
@@ -906,10 +1402,10 @@
 
   function moveObject(object,original,deltaX,deltaY){
     const dx=snap(deltaX),dy=snap(deltaY);
-    if(object.type==='room'||(object.type==='hallway'&&!Array.isArray(object.points))){
-      object.x=original.x+dx;object.y=original.y+dy;
-    }else if(object.type==='hallway'&&Array.isArray(object.points)){
+    if(isEditableShape(object)){
       object.points=original.points.map(point=>[point[0]+dx,point[1]+dy]);
+    }else if(object.type==='room'||object.type==='hallway'){
+      object.x=original.x+dx;object.y=original.y+dy;
     }else{
       object.x=original.x+dx;object.y=original.y+dy;
     }
@@ -917,8 +1413,8 @@
 
   function cancelGestureForPinch(){
     clearLongPress();
-    if(gesture?.type==='draw')previewLayer.innerHTML='';
-    if(gesture?.type==='move'&&gesture.original){
+    if(gesture?.type==='draw'||gesture?.type==='freehand')previewLayer.innerHTML='';
+    if((gesture?.type==='move'||gesture?.type==='handle')&&gesture.original){
       const object=getObject(gesture.objectId);
       if(object)Object.assign(object,deepClone(gesture.original));
       if(gesture.historySaved)history.pop();
@@ -956,10 +1452,40 @@
     if(candidates.length)beginConnectionPrompts(candidates);else openObjectSheet();
   }
 
+  function finishFreehand(currentGesture,endPoint){
+    previewLayer.innerHTML='';
+    const raw=currentGesture.points.slice();
+    if(!raw.length||distance(raw[raw.length-1],endPoint)>2/viewport.zoom)raw.push(endPoint);
+    const closed=currentGesture.kind==='room';
+    const points=cleanDrawnPoints(raw,closed);
+    if(!closed&&(points.length<2||polylineLength(points)<GRID)){
+      flash('Draw a longer tunnel');
+      return;
+    }
+    if(closed&&(points.length<3||polygonArea(points)<GRID*GRID*1.5)){
+      flash('Trace a larger cavern outline');
+      return;
+    }
+    saveHistory();
+    const object=closed?{
+      id:nextId(),type:'room',subtype:'cavern',floorId:state.activeFloorId,shape:'outline',points,
+      smoothing:'curve',label:'',notes:''
+    }:{
+      id:nextId(),type:'hallway',subtype:'mine-tunnel',floorId:state.activeFloorId,shape:'path',points,
+      pathStyle:'curved',smoothing:'curve',widthCells:activeTunnelWidth,label:'',notes:''
+    };
+    state.objects.push(object);
+    selectedId=object.id;
+    render();
+    const candidates=discoverConnectionsFor(object);
+    if(candidates.length)beginConnectionPrompts(candidates);else openObjectSheet();
+  }
+
   function placePointObject(kind,point){
     saveHistory();
     const object=kind==='door'?{
-      id:nextId(),type:'door',floorId:state.activeFloorId,x:point.x,y:point.y,orientation:doorOrientation,
+      id:nextId(),type:'door',floorId:state.activeFloorId,x:point.x,y:point.y,
+      angle:doorOrientation==='vertical'?90:0,orientation:doorOrientation,
       doorType:'door',connectionId:null,generatedByConnection:false,label:'',notes:''
     }:{
       id:nextId(),type:'marker',floorId:state.activeFloorId,x:point.x,y:point.y,markerType:activeMarkerType,
@@ -978,6 +1504,7 @@
     state.connections=state.connections.filter(c=>!connectionIds.has(String(c.id)));
     state.objects=state.objects.filter(o=>!sameId(o.id,objectId)&&!generatedDoorIds.some(id=>sameId(id,o.id)));
     if(sameId(selectedId,objectId))selectedId=null;
+    if(sameId(editingShapeId,objectId))editingShapeId=null;
   }
 
   board.addEventListener('pointerdown',event=>{
@@ -988,9 +1515,21 @@
     if(event.pointerType==='touch'&&pointers.size>=2){startPinch();event.preventDefault();return}
     if(gesture?.type==='pinch'||gesture?.type==='blocked'){event.preventDefault();return}
     const object=targetObjectFromEvent(event);
+    const handle=event.target.closest?.('[data-handle-index]');
     const startClient={x:event.clientX,y:event.clientY};
-    if(tool==='room'||tool==='hallway'){
-      gesture={type:'draw',pointerId:event.pointerId,kind:tool,startClient,startWorld:worldPoint(event.clientX,event.clientY)};
+    if(editingShapeId!==null&&handle&&sameId(handle.dataset.id,editingShapeId)){
+      const editing=getObject(editingShapeId);
+      saveHistory();
+      gesture={type:'handle',pointerId:event.pointerId,objectId:editingShapeId,index:Number(handle.dataset.handleIndex),
+        startClient,original:deepClone(editing),historySaved:true};
+    }else if(tool==='room'||tool==='hallway'){
+      const freehand=tool==='room'?roomDrawMode==='cavern':hallwayDrawMode==='tunnel';
+      if(freehand){
+        const startWorld=worldPoint(event.clientX,event.clientY,false);
+        gesture={type:'freehand',pointerId:event.pointerId,kind:tool,startClient,startWorld,points:[startWorld]};
+      }else{
+        gesture={type:'draw',pointerId:event.pointerId,kind:tool,startClient,startWorld:worldPoint(event.clientX,event.clientY)};
+      }
     }else if(tool==='select'){
       if(object){
         gesture={type:'object-pending',pointerId:event.pointerId,objectId:object.id,startClient,lastClient:startClient,moved:false};
@@ -1022,6 +1561,20 @@
       setZoomAt(gesture.startZoom*scale,center.x,center.y,gesture.anchorWorld);
     }else if(gesture.pointerId===event.pointerId&&gesture.type==='draw'){
       previewRectangle(gesture.startWorld,worldPoint(event.clientX,event.clientY),gesture.kind);
+    }else if(gesture.pointerId===event.pointerId&&gesture.type==='freehand'){
+      const current=worldPoint(event.clientX,event.clientY,false);
+      const last=gesture.points[gesture.points.length-1];
+      if(distance(last,current)>=Math.max(3,5/viewport.zoom)){
+        gesture.points.push(current);
+        previewFreehand(gesture.points,gesture.kind);
+      }
+    }else if(gesture.pointerId===event.pointerId&&gesture.type==='handle'){
+      const object=getObject(gesture.objectId);
+      const current=worldPoint(event.clientX,event.clientY,false);
+      if(object&&object.points[gesture.index]){
+        object.points[gesture.index]=[snapHalf(current.x),snapHalf(current.y)];
+        render();
+      }
     }else if(gesture.pointerId===event.pointerId&&gesture.type==='pan'){
       const dx=event.clientX-gesture.startClient.x,dy=event.clientY-gesture.startClient.y;
       if(Math.hypot(dx,dy)>3)gesture.moved=true;
@@ -1067,8 +1620,8 @@
     if(!currentGesture||currentGesture.pointerId!==event.pointerId){pointers.delete(event.pointerId);return}
 
     if(cancelled){
-      if(currentGesture.type==='draw')previewLayer.innerHTML='';
-      if(currentGesture.type==='move'&&currentGesture.original){
+      if(currentGesture.type==='draw'||currentGesture.type==='freehand')previewLayer.innerHTML='';
+      if((currentGesture.type==='move'||currentGesture.type==='handle')&&currentGesture.original){
         const object=getObject(currentGesture.objectId);
         if(object)Object.assign(object,deepClone(currentGesture.original));
         if(currentGesture.historySaved)history.pop();
@@ -1076,6 +1629,8 @@
       }
     }else if(currentGesture.type==='draw'){
       finishDraw(worldPoint(event.clientX,event.clientY));
+    }else if(currentGesture.type==='freehand'){
+      finishFreehand(currentGesture,worldPoint(event.clientX,event.clientY,false));
     }else if(currentGesture.type==='pan'){
       if(!currentGesture.moved){selectedId=null;render()}
       scheduleAutosave();
@@ -1087,6 +1642,11 @@
       render();
       setTool('select');
       flash(invalid?`${invalid} connection${invalid===1?'':'s'} need attention`:'Object moved');
+    }else if(currentGesture.type==='handle'){
+      const invalid=revalidateConnectionsForObject(currentGesture.objectId);
+      render();
+      updateToolStatus();
+      flash(invalid?`${invalid} connection${invalid===1?'':'s'} need attention`:'Shape updated');
     }else if(currentGesture.type==='tool-tap'&&!currentGesture.moved){
       if(currentGesture.kind==='erase'&&currentGesture.objectId!==null){
         saveHistory();deleteObjectWithRelationships(currentGesture.objectId);render();flash('Deleted');
@@ -1120,6 +1680,26 @@
     }
   }));
 
+  document.querySelectorAll('[data-room-mode]').forEach(button=>button.addEventListener('click',()=>{
+    roomDrawMode=button.dataset.roomMode;
+    previewLayer.innerHTML='';
+    updateDrawingControls();
+    updateToolStatus();
+    flash(roomDrawMode==='cavern'?'Cavern drawing ready':'Rectangle rooms ready');
+  }));
+  document.querySelectorAll('[data-hallway-mode]').forEach(button=>button.addEventListener('click',()=>{
+    hallwayDrawMode=button.dataset.hallwayMode;
+    previewLayer.innerHTML='';
+    updateDrawingControls();
+    updateToolStatus();
+    flash(hallwayDrawMode==='tunnel'?'Curved tunnel drawing ready':'Block hallways ready');
+  }));
+  document.querySelectorAll('[data-tunnel-width]').forEach(button=>button.addEventListener('click',()=>{
+    activeTunnelWidth=Number(button.dataset.tunnelWidth);
+    updateDrawingControls();
+    flash(`${button.textContent} tunnel width selected`);
+  }));
+
   document.querySelectorAll('[data-connection-choice]').forEach(button=>button.addEventListener('click',()=>applyConnectionChoice(button.dataset.connectionChoice)));
   document.getElementById('zoomOutBtn').addEventListener('click',()=>zoomFromCenter(1/1.25));
   document.getElementById('zoomInBtn').addEventListener('click',()=>zoomFromCenter(1.25));
@@ -1129,6 +1709,7 @@
     const normalized=normalizeState(JSON.parse(history.pop()));
     state=normalized.state;
     selectedId=null;
+    editingShapeId=null;
     connectionQueue=[];
     render();
     forceCloseSheet();
@@ -1143,6 +1724,30 @@
     editorHistorySaved=true;
   }
 
+  function startShapeEditing(){
+    const object=selected();
+    if(!object||!isEditableShape(object))return;
+    editingShapeId=object.id;
+    setTool('select',true);
+    forceCloseSheet();
+    render();
+    updateDrawingControls();
+    updateToolStatus();
+  }
+
+  function finishShapeEditing(openEditor=true){
+    const object=getObject(editingShapeId);
+    if(object)revalidateConnectionsForObject(object.id);
+    editingShapeId=null;
+    render();
+    updateDrawingControls();
+    updateToolStatus();
+    if(openEditor&&object&&sameId(object.id,selectedId))openObjectSheet();
+  }
+
+  editShapeBtn.addEventListener('click',startShapeEditing);
+  document.getElementById('finishShapeEditBtn').addEventListener('click',()=>finishShapeEditing(true));
+
   labelField.addEventListener('input',()=>{
     const object=selected();if(!object)return;
     saveEditorHistoryOnce();
@@ -1156,6 +1761,15 @@
     object.notes=notesField.value;
     scheduleAutosave();
   });
+  tunnelWidthField.addEventListener('input',()=>{
+    const object=selected();
+    if(!isPathHallway(object))return;
+    saveEditorHistoryOnce();
+    object.widthCells=clamp(Number(tunnelWidthField.value),.5,3);
+    tunnelWidthValue.textContent=`${object.widthCells.toFixed(2).replace(/0+$/,'').replace(/\.$/,'')}×`;
+    revalidateConnectionsForObject(object.id);
+    render();
+  });
   document.getElementById('deleteBtn').addEventListener('click',()=>{
     if(selectedId===null)return;
     saveHistory();
@@ -1167,7 +1781,9 @@
     const object=selected();
     if(!object||object.type!=='door')return;
     saveHistory();
-    object.orientation=object.orientation==='horizontal'?'vertical':'horizontal';
+    const current=normalizeAngle(object.angle??(object.orientation==='vertical'?90:0));
+    object.angle=angleDifference(current,0)<1?90:angleDifference(current,90)<1?0:normalizeAngle(current+45);
+    object.orientation=orientationFromAngle(object.angle);
     const invalid=revalidateConnectionsForObject(object.id);
     render();
     openObjectSheet();
@@ -1183,15 +1799,28 @@
       id:object.id,type:object.type,floorId:object.floorId,label:object.label,notes:object.notes,
       connectionIds:connectionsForObject(object.id)
     };
-    if(object.type==='room'||(object.type==='hallway'&&!Array.isArray(object.points))){
-      return {...common,shape:'rectangle',gridPosition:{column:object.x/GRID,row:object.y/GRID},
-        dimensions:{widthCells:object.w/GRID,heightCells:object.h/GRID}};
+    if(object.subtype)common.subtype=object.subtype;
+    if(isOutlineRoom(object)){
+      const points=object.points.map(point=>({column:point[0]/GRID,row:point[1]/GRID}));
+      return {...common,shape:'outline',gridOutline:points,
+        geometry:{kind:'outline',points,closed:true,smoothing:object.smoothing||'curve'}};
     }
-    if(object.type==='hallway'){
-      return {...common,shape:'path',widthCells:1,gridPath:object.points.map(p=>({column:p[0]/GRID,row:p[1]/GRID}))};
+    if((object.type==='room'||object.type==='hallway')&&!Array.isArray(object.points)){
+      const gridPosition={column:object.x/GRID,row:object.y/GRID};
+      const dimensions={widthCells:object.w/GRID,heightCells:object.h/GRID};
+      return {...common,shape:'rectangle',gridPosition,dimensions,
+        geometry:{kind:'rectangle',origin:gridPosition,size:dimensions}};
+    }
+    if(isPathHallway(object)){
+      const gridPath=object.points.map(point=>({column:point[0]/GRID,row:point[1]/GRID}));
+      const widthCells=object.widthCells||.75;
+      const smoothing=object.smoothing||'none';
+      return {...common,shape:'path',pathStyle:object.pathStyle||'constructed',widthCells,smoothing,gridPath,
+        geometry:{kind:'centerline',points:gridPath,widthCells,smoothing}};
     }
     if(object.type==='door'){
-      return {...common,gridPosition:{column:object.x/GRID,row:object.y/GRID},orientation:object.orientation,
+      const angleDegrees=normalizeAngle(object.angle??(object.orientation==='vertical'?90:0));
+      return {...common,gridPosition:{column:object.x/GRID,row:object.y/GRID},orientation:orientationFromAngle(angleDegrees),angleDegrees,
         doorType:object.doorType,connectionId:object.connectionId};
     }
     return {...common,gridPosition:{column:object.x/GRID,row:object.y/GRID},markerType:object.markerType,
@@ -1205,7 +1834,8 @@
       from:{objectId:connection.fromObjectId,objectType:from?.type||'missing',label:from?.label||''},
       to:{objectId:connection.toObjectId,objectType:to?.type||'missing',label:to?.label||''},
       gridPosition:{column:connection.position.x/GRID,row:connection.position.y/GRID},
-      orientation:connection.orientation,doorObjectId:connection.doorObjectId,status:connection.status,
+      orientation:connection.orientation,angleDegrees:normalizeAngle(connection.angle??(connection.orientation==='vertical'?90:0)),
+      contact:connection.contact||'threshold',doorObjectId:connection.doorObjectId,status:connection.status,
       issue:connection.status==='invalid'?connection.reason||'Connection geometry is invalid':null
     };
   }
@@ -1222,7 +1852,7 @@
       result[object.type]=(result[object.type]||0)+1;return result;
     },{});
     return {
-      format:'Descendence Dungeon Draft',schemaVersion:3,
+      format:'Descendence Dungeon Draft',schemaVersion:4,
       grid:{coordinateUnit:'grid-cell',cellSize:GRID,origin:'top-left',axes:{column:'east',row:'south'}},
       dungeon:{title:state.meta.title,activeFloorId:state.activeFloorId,floors,objects:exportedObjects,connections:exportedConnections},
       summary:{objectCounts:counts,connectionCount:exportedConnections.length,
@@ -1253,6 +1883,7 @@
       saveHistory();
       state=normalized.state;
       selectedId=null;
+      editingShapeId=null;
       validateAllConnections();
       render();
       forceCloseSheet();
@@ -1266,6 +1897,7 @@
     saveHistory();
     state=createEmptyState();
     selectedId=null;
+    editingShapeId=null;
     render();
     forceCloseSheet();
     fitDungeon();
@@ -1286,9 +1918,10 @@
       getState:()=>deepClone(state),
       getViewport:()=>({...viewport}),
       normalizeState:raw=>deepClone(normalizeState(raw).state),
-      setState:raw=>{state=normalizeState(raw).state;selectedId=null;validateAllConnections();render();fitDungeon()},
+      setState:raw=>{state=normalizeState(raw).state;selectedId=null;editingShapeId=null;connectionQueue=[];validateAllConnections();render();fitDungeon();updateDrawingControls()},
       detectConnection:(firstId,secondId)=>deepClone(detectConnectionBetween(getObject(firstId),getObject(secondId))),
       export:()=>deepClone(buildExportPayload()),
+      sampleObject:id=>deepClone(sampledObjectPoints(getObject(id))),
       fit:fitDungeon
     };
   }
