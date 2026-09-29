@@ -236,9 +236,12 @@
   const STORAGE_V4='descendenceDungeonDraftV4';
   const STORAGE_V3='descendenceDungeonDraftV3';
   const STORAGE_V2='descendenceDungeonDraftV2';
-  const MIN_ZOOM=.25;
+  const MIN_ZOOM=.15;
   const MAX_ZOOM=3;
   const EPS=.75;
+  const BUNDLED_DUNGEONS={
+    'reference-50-rooms':'examples/reference-dungeon-50-rooms.json'
+  };
 
   const markerCatalog={
     monster:{label:'Monster',glyph:'M'},
@@ -1892,6 +1895,32 @@
     }catch(error){if(error.message!=='cancelled')alert('Could not import that JSON file.')}
     event.target.value='';
   });
+
+  async function loadBundledDungeonFromQuery(){
+    const key=new URLSearchParams(location.search).get('example');
+    const source=BUNDLED_DUNGEONS[key];
+    if(!source)return;
+    if(!confirm('Open the reconstructed 50-room reference dungeon? This replaces the current canvas. Download your current dungeon first if you want to keep it.'))return;
+    try{
+      const response=await fetch(source,{cache:'no-store'});
+      if(!response.ok)throw new Error(`Example request failed with ${response.status}`);
+      const normalized=normalizeState(await response.json());
+      if(!normalized.state.objects.length)throw new Error('Example dungeon is empty');
+      saveHistory();
+      state=normalized.state;
+      selectedId=null;
+      editingShapeId=null;
+      connectionQueue=[];
+      validateAllConnections();
+      render();
+      forceCloseSheet();
+      fitDungeon();
+      flash('Reference dungeon opened');
+    }catch(error){
+      console.error(error);
+      alert('Could not open the reference dungeon. You can still download and import its JSON file.');
+    }
+  }
   document.getElementById('clearBtn').addEventListener('click',()=>{
     if(!confirm('Clear the whole dungeon?'))return;
     saveHistory();
@@ -1925,6 +1954,7 @@
       fit:fitDungeon
     };
   }
+  loadBundledDungeonFromQuery();
 })();
 </script>
 </body>

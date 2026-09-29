@@ -392,6 +392,21 @@ assert(state.objects.some(object=>object.type==='door'),'standalone door placeme
 document.getElementById('undoBtn').click();
 assert(api.getState().objects.some(object=>object.type==='marker')&&!api.getState().objects.some(object=>object.type==='door'),'undo removes the most recent standalone door');
 
+// The bundled 50-room reconstruction is a real, editable dungeon—not a flattened reference image.
+const referenceDungeon=JSON.parse(fs.readFileSync(new URL('../examples/reference-dungeon-50-rooms.json',`file://${__filename}`).pathname,'utf8'));
+api.setState(referenceDungeon);
+state=api.getState();
+assert(api.getViewport().zoom<.25,'fit can show a wide 50-room dungeon on a phone-sized canvas');
+assert(state.objects.filter(object=>object.type==='room').length===50,'reference dungeon imports all 50 numbered rooms');
+assert(state.objects.some(object=>object.type==='room'&&object.label==='32'&&object.shape==='outline'),'reference dungeon keeps the six-sided room editable');
+assert(state.objects.some(object=>object.type==='room'&&object.label==='45'&&object.shape==='outline'),'reference dungeon keeps the rounded western hall editable');
+assert(state.objects.some(object=>object.type==='marker'&&object.markerType==='entrance'),'reference dungeon includes a semantic main entrance');
+const invalidReferenceConnections=state.connections.filter(connection=>connection.status!=='valid');
+assert(invalidReferenceConnections.length===0,`reference dungeon imports with valid topology (${invalidReferenceConnections.map(connection=>`${connection.id}: ${connection.reason}`).join(', ')})`);
+payload=api.export();
+assert(payload.dungeon.connections.length===referenceDungeon.dungeon.connections.length,'reference topology survives an export round trip');
+assert(payload.summary.invalidConnectionIds.length===0,'reference export reports no invalid connections');
+
 // Empty-canvas drag and wheel navigation remain functional.
 empty();
 clickData('tool','select');
