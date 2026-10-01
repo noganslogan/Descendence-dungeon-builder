@@ -1,0 +1,11 @@
+{
+  "name": "Descendence Settlement Atelier",
+  "short_name": "City Atelier",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1ede1",
+  "theme_color": "#18221e",
+  "description": "Offline-capable Descendence city and town map designer."
+}
