@@ -15,7 +15,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><div class="brand-icon">✦</div><div><strong>DESCENDENCE</strong><div class="subtitle">Settlement Atelier / v1</div></div></div>
+  <div class="brand"><div class="brand-icon">✦</div><div><strong>DESCENDENCE</strong><div class="subtitle">Settlement Atelier / v1.1</div></div></div>
   <div class="divider"></div><span id="project-title">HighSpire</span><div class="header-spacer"></div>
   <div class="header-actions">
     <button class="button ghost optional" id="undoBtn" title="Undo Ctrl+Z">↶ Undo</button>
@@ -157,7 +157,7 @@ let road=false;for(const st of streets){const sn=lineNearest(gp,st.points||[]);i
 
 return w}
 const canvas=$('mapCanvas'),ctx=canvas.getContext('2d',{alpha:false});
-function worldPath(pts,close=false){if(!pts.length)return;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);if(close)ctx.closePath()}
+function worldPath(pts,close=false){if(!pts?.length)return;const xy=v=>Array.isArray(v)?v:[n(v?.x),n(v?.y)];const first=xy(pts[0]);ctx.beginPath();ctx.moveTo(first[0],first[1]);for(let i=1;i<pts.length;i++){const p=xy(pts[i]);ctx.lineTo(p[0],p[1])}if(close)ctx.closePath()}
 function label(t,x,y,px=11,color='#4d5944',anchor='center',weight='normal'){
  ctx.save();ctx.translate(x,y);ctx.scale(1,-1);ctx.fillStyle=color;ctx.textBaseline='middle';ctx.textAlign=anchor;ctx.font=`${weight} ${px/view.z}px Georgia,serif`;ctx.fillText(String(t),0,0);ctx.restore()}
 function polygon(pts,fill,stroke='#0000',width=1){if(!pts||pts.length<3)return;worldPath(pts,true);ctx.fillStyle=fill;ctx.fill();if(stroke!=='#0000'){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}}
