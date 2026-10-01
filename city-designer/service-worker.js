@@ -1,5 +1,5 @@
 // Offline cache for the Descendence City Designer.
-const CACHE='descendence-city-v2-20261001';
+const CACHE='descendence-city-v3-20261001';
 const ASSETS=['./','./index.html','./manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
